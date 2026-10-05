@@ -1,91 +1,129 @@
-import { h, card, note, button } from '../ui/dom';
-import { store, today } from '../data/store';
+import { h, page, card, btn, chip, sectionH, metric, mean, fmtDate } from '../ui/dom';
+import { icon } from '../ui/icons';
+import { sparkline, ring } from '../ui/chart';
+import { store, dayKey } from '../data/store';
 import { formatHz } from '../audio/engine';
-import { sparkBars } from '../ui/chart';
-import { navigate } from '../main';
+import { navigate } from '../router';
+import { todayTasks, programWeek, programDay, nextLabStep } from '../data/program';
 import { bestRiStimulus, describeStimulus } from './ri';
 
 export function renderHome(root: HTMLElement): void {
   const d = store.get();
-  const match = store.latestMatch();
-  const matchL = store.latestMatch('left');
-  const matchR = store.latestMatch('right');
-  const todayStr = today();
-  const todaySessions = d.sessions.filter((s) => s.date.slice(0, 10) === todayStr);
-  const minutesToday = Math.round(todaySessions.reduce((a, s) => a + s.durationS, 0) / 60);
-  const goal = d.settings.dailyGoalMin;
-  const journalToday = d.journal.find((j) => j.date === todayStr);
+  const hour = new Date().getHours();
+  const greet = hour < 11 ? 'Guten Morgen' : hour < 18 ? 'Hallo' : 'Guten Abend';
+  const tasks = todayTasks();
+  const done = tasks.filter((t) => t.done).length;
+  const week = programWeek();
+  const m = store.latestMatch();
   const best = bestRiStimulus(d.riTrials);
+  const som = store.latestSomatic();
 
-  root.appendChild(h('h1', null, d.settings.name ? `Hallo ${d.settings.name}` : 'Dein Tinnitus-Labor'));
+  // ---- hero: greeting + ring
+  const rg = ring('var(--sound)', 14);
+  rg.set(done / tasks.length);
+  const hero = h('div', { class: 'row', style: 'align-items:center;gap:18px;margin:6px 0 18px' },
+    h('div', { class: 'grow' },
+      h('p', { class: 'eyebrow' }, `Woche ${Math.min(week, 8)} von 8 · Tag ${programDay()}`),
+      h('h1', { class: 'title-xl', style: 'margin:0' }, `${greet}${d.settings.name ? `, ${d.settings.name}` : ''}`),
+      h('p', { class: 'body', style: 'margin:6px 0 0' }, weekFocus(week))),
+    h('div', { class: 'ring-wrap', style: 'width:92px;margin:0' }, rg.el,
+      h('div', { class: 'ring-center' }, h('div', { class: 'num', style: 'font-size:24px;font-weight:700' }, `${done}/${tasks.length}`))));
 
-  // Status hero
-  const hero = h('div', { class: 'hero' });
-  if (!match) {
-    hero.append(
-      h('div', { class: 'big-number' }, '?', h('small', null, 'Tinnitus-Frequenz noch unbekannt')),
-      h('p', null, 'Alles in dieser App baut auf deiner persönlichen Tinnitus-Frequenz auf. Starte mit dem Matching, es dauert etwa 5 Minuten.'),
-      button('Tinnitus jetzt matchen →', () => navigate('/match'), 'btn big'),
-    );
-  } else {
-    const parts: HTMLElement[] = [];
-    if (matchL) parts.push(h('div', { class: 'stat' }, h('div', { class: 'label' }, 'Links'), h('div', { class: 'value' }, formatHz(matchL.freq))));
-    if (matchR) parts.push(h('div', { class: 'stat' }, h('div', { class: 'label' }, 'Rechts'), h('div', { class: 'value' }, formatHz(matchR.freq))));
-    const both = store.latestMatch('both');
-    if (both && !matchL && !matchR) parts.push(h('div', { class: 'stat' }, h('div', { class: 'label' }, 'Beide Ohren'), h('div', { class: 'value' }, formatHz(both.freq))));
-    hero.append(
-      h('div', { class: 'row' }, ...parts, h('div', { class: 'stat' }, h('div', { class: 'label' }, 'Heute'), h('div', { class: 'value' }, `${minutesToday} / ${goal} min`))),
-      h('p', { class: 'muted' }, `Letztes Matching: ${new Date(match.date).toLocaleDateString('de-DE')} · Streuung ${(match.spreadOctaves * 12).toFixed(1)} Halbtöne`),
-    );
-  }
-  root.appendChild(hero);
+  // ---- tasks
+  const taskCard = card(null, ...tasks.map((t) => {
+    const el = h('div', { class: `task ${t.done ? 'done' : ''}` },
+      h('span', { class: 'check' }, t.done ? icon('check') : null),
+      h('span', { class: `li-ico ${t.kind}` }, icon(t.icon)),
+      h('div', { class: 'grow' }, h('div', { class: 't-title' }, t.title), h('div', { class: 't-sub' }, t.sub)),
+      icon('chevR', 'chev'));
+    el.addEventListener('click', () => navigate(t.path));
+    return el;
+  }));
 
-  // Next step
-  const steps = card('Dein nächster Schritt');
-  if (!match) {
-    steps.append(h('p', null, '1. Tinnitus-Frequenz und Lautheit bestimmen.'));
-  } else if (d.riTrials.length < 3) {
-    steps.append(
-      h('p', null, 'Finde im Residual-Inhibition-Labor heraus, welcher Klang deinen Tinnitus am stärksten unterdrückt. Das ist der Schlüssel zu einer wirklich personalisierten Therapie.'),
-      button('RI-Labor öffnen →', () => navigate('/ri'), 'btn'),
-    );
-  } else if (minutesToday < goal) {
-    steps.append(
-      h('p', null, best ? `Dein wirksamster Klang bisher: ${describeStimulus(best.stimulus)} (Unterdrückung ${best.depth.toFixed(1)} Punkte).` : 'Starte eine Therapie-Sitzung.'),
-      h('p', { class: 'muted' }, `Noch ${goal - minutesToday} Minuten bis zum Tagesziel.`),
-      button('Therapie starten →', () => navigate('/therapy'), 'btn'),
-    );
-  } else {
-    steps.append(note('Tagesziel erreicht. Stark. Trag noch kurz dein Tagebuch ein, damit wir den Verlauf sehen.', 'ok'));
-  }
-  if (!journalToday) {
-    steps.append(h('p', { style: 'margin-top:10px' }, button('Tagebuch für heute ausfüllen', () => navigate('/journal'), 'btn secondary')));
-  }
-  root.appendChild(steps);
+  // ---- quick check-in
+  const t = dayKey();
+  const todays = d.checkins.filter((c) => dayKey(new Date(c.ts)) === t);
+  const quick = card('glow-tin tap',
+    h('div', { class: 'row between' },
+      h('div', null, h('p', { class: 'title-m' }, 'Wie laut ist er gerade?'), h('p', { class: 'small', style: 'margin:0' }, todays.length ? `Heute ${todays.length}× erfasst · zuletzt ${todays[todays.length - 1].loudness}/10` : 'Tippen für einen 10-Sekunden-Check-in')),
+      h('span', { class: 'li-ico tin' }, icon('pulse'))));
+  quick.addEventListener('click', () => navigate('/checkin'));
 
-  // Trend
-  const last14 = d.journal.slice(-14);
-  if (last14.length) {
-    const trend = card('Lautheit der letzten 14 Tage');
-    trend.append(sparkBars(last14.map((j) => j.loudness), 10, 'var(--accent)'));
-    const first = last14.slice(0, Math.ceil(last14.length / 2));
-    const second = last14.slice(Math.ceil(last14.length / 2));
-    const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / (xs.length || 1);
-    const delta = avg(second.map((j) => j.loudness)) - avg(first.map((j) => j.loudness));
-    trend.append(h('p', { class: 'muted' }, last14.length > 3 ? `Trend: ${delta <= -0.3 ? 'leiser werdend ▼' : delta >= 0.3 ? 'lauter werdend ▲' : 'stabil ▶'} (${delta >= 0 ? '+' : ''}${delta.toFixed(1)})` : 'Mehr Einträge nötig für einen Trend.'));
-    root.appendChild(trend);
-  }
+  // ---- profile
+  const profile = m
+    ? card('tap',
+        h('div', { class: 'row between' }, h('p', { class: 'title-m' }, 'Dein Tinnitus-Profil'), icon('chevR', 'chev')),
+        h('div', { class: 'grid-2 mt8' },
+          metric('Frequenz', formatHz(m.freq).split(' ')[0], formatHz(m.freq).split(' ')[1]),
+          metric('Maskierung (MML)', m.mmlDb === null ? '–' : String(m.mmlDb), 'dB'),
+          metric('Bester RI-Klang', best ? describeStimulus(best.stimulus) : 'offen'),
+          metric('Somatisch', som ? (som.somatic ? 'ja' : 'nein') : 'offen')))
+    : null;
+  profile?.addEventListener('click', () => navigate('/lab'));
 
-  root.appendChild(
-    card(
-      'Wie diese App arbeitet',
-      h('ol', { class: 'steps' },
-        h('li', null, h('b', null, 'Messen:'), ' Frequenz, Lautheit und Maskierungsschwelle deines Tinnitus bestimmen, Hörprofil erfassen.'),
-        h('li', null, h('b', null, 'Analysieren:'), ' Im RI-Labor systematisch testen, welcher Klang bei dir Residual Inhibition (Nachhall-Stille) auslöst, und wie lange.'),
-        h('li', null, h('b', null, 'Therapieren:'), ' Täglich mit dem individuell wirksamsten Verfahren arbeiten: Notched Sound, CR-Neuromodulation, Reset-Sitzungen, Klanganreicherung.'),
-        h('li', null, h('b', null, 'Verfolgen:'), ' Tagebuch und Wochen-Check zeigen, ob und was sich verändert. Alle Daten bleiben auf deinem Gerät.'),
-      ),
-      note('Hinweis: Diese App ersetzt keine HNO-ärztliche Abklärung. Nach 20 Jahren Tinnitus ist ein aktuelles Audiogramm beim HNO sinnvoll, weil Hochton-Hörverlust die Wahl der Therapie beeinflusst.', 'warn'),
-    ),
-  );
+  // ---- trend
+  const series = dailyLoudness(14);
+  const trend = series.filter((v) => v !== null).length >= 2
+    ? card(null,
+        h('div', { class: 'row between' }, h('p', { class: 'title-m' }, 'Lautheit, 14 Tage'), trendChip(series)),
+        sparkline(series.filter((v): v is number => v !== null), { min: 0, max: 10, color: 'var(--tin)' }),
+        h('p', { class: 'small', style: 'margin:4px 0 0' }, 'Tagesmittel aus Check-ins und Tagesrückblick'))
+    : null;
+
+  // ---- next lab step teaser
+  const nl = nextLabStep();
+  const labTeaser = nl
+    ? card('glow-lab tap',
+        h('p', { class: 'eyebrow c-lab', style: 'margin:0 0 4px' }, 'Labor'),
+        h('p', { class: 'title-m' }, nl.title),
+        h('p', { class: 'body', style: 'margin:4px 0 12px' }, nl.sub),
+        btn('Starten', () => navigate(nl.path), { variant: 'lab', size: 'sm', iconRight: 'chevR' }))
+    : null;
+  labTeaser?.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('button')) return; navigate(nl!.path); });
+
+  root.appendChild(page(
+    hero,
+    quick,
+    sectionH('Heute'),
+    taskCard,
+    labTeaser,
+    profile ? sectionH('Profil') : null,
+    profile,
+    trend ? sectionH('Verlauf') : null,
+    trend,
+    h('p', { class: 'small center mt24' }, 'Kein Medizinprodukt. Ersetzt keine HNO-Abklärung. ', h('a', { href: '#/learn', style: 'text-decoration:underline' }, 'Was die Forschung sagt')),
+  ));
 }
+
+function weekFocus(w: number): string {
+  if (w <= 1) return 'Messwoche: Wir lernen deinen Tinnitus genau kennen.';
+  if (w <= 5) return 'Trainingsphase: Täglich dein wirksamster Klang plus Kopf-Training.';
+  if (w === 6) return 'Auswertung: Was wirkt bei dir, was fliegt raus?';
+  if (w <= 8) return 'Feinschliff: Neu messen und das Protokoll anpassen.';
+  return 'Erhaltungsphase: Weiter mit dem, was nachweislich wirkt.';
+}
+
+export function dailyLoudness(days: number): (number | null)[] {
+  const d = store.get();
+  const out: (number | null)[] = [];
+  for (let i = days - 1; i >= 0; i--) {
+    const day = dayKey(new Date(Date.now() - i * 86400e3));
+    const vals = d.checkins.filter((c) => dayKey(new Date(c.ts)) === day).map((c) => c.loudness);
+    const j = d.journal.find((x) => x.date === day);
+    if (j) vals.push(j.loudness);
+    out.push(vals.length ? mean(vals) : null);
+  }
+  return out;
+}
+
+function trendChip(series: (number | null)[]): HTMLElement {
+  const v = series.filter((x): x is number => x !== null);
+  if (v.length < 4) return chip('zu wenig Daten');
+  const half = Math.floor(v.length / 2);
+  const delta = mean(v.slice(half)) - mean(v.slice(0, half));
+  if (delta <= -0.4) return chip(`▼ ${delta.toFixed(1)}`, 'good');
+  if (delta >= 0.4) return chip(`▲ +${delta.toFixed(1)}`, 'warn');
+  return chip('stabil');
+}
+
+void fmtDate;

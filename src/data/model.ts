@@ -2,7 +2,7 @@ export type Ear = 'left' | 'right' | 'both';
 
 export interface HearingPoint {
   freq: number;
-  /** Relative threshold in dB (0 = loudest reference level of the app, more negative = better hearing) */
+  /** Relative threshold in dB (0 = app full scale; more negative = better hearing) */
   level: number;
 }
 
@@ -13,43 +13,55 @@ export interface HearingTest {
   right: HearingPoint[];
 }
 
+/** Likeness-rating tinnitus spectrum (Noreña et al. 2002). */
+export interface TinnitusSpectrum {
+  id: string;
+  date: string;
+  ear: Ear;
+  timbre: 'tone' | 'hiss';
+  points: { freq: number; value: number }[]; // mean likeness 0–10
+  peak: number;
+}
+
 export interface TinnitusMatch {
   id: string;
   date: string;
   ear: Ear;
-  /** Matched tinnitus frequency in Hz (median of trials) */
   freq: number;
-  /** Individual trial values in Hz */
   trials: number[];
-  /** Spread of trials as fraction of an octave */
   spreadOctaves: number;
-  /** Loudness match in dB relative to app reference */
   loudnessDb: number;
-  /** Timbre: pure tone or hiss (narrowband noise) */
   timbre: 'tone' | 'hiss';
-  /** Minimum masking level with broadband noise, dB relative */
   mmlDb: number | null;
 }
 
-export type StimulusKind = 'tone' | 'nbn-third' | 'nbn-octave' | 'bbn' | 'notched-bbn';
+export type StimulusKind = 'tone' | 'am-tone' | 'nbn-third' | 'nbn-octave' | 'bbn' | 'notched-bbn';
 
 export interface ResidualInhibitionTrial {
   id: string;
   date: string;
   stimulus: StimulusKind;
+  blind: boolean;
   centerFreq: number;
   levelDb: number;
   durationS: number;
-  /** Loudness ratings (0-10) sampled every 2 s after stimulus ends */
+  /** Loudness ratings (0–10) sampled every 2 s after stimulus offset */
   curve: number[];
   baseline: number;
-  /** Max suppression in points (baseline - min) */
   depth: number;
-  /** Seconds until loudness returned to >= 90 % of baseline (or full window) */
   durationOfEffectS: number;
 }
 
-export type TherapyMode = 'notched' | 'cr' | 'enrichment' | 'reset' | 'bimodal';
+export type SomaticManeuver = 'clench' | 'jaw-forward' | 'jaw-open' | 'head-forward' | 'head-back' | 'head-left' | 'head-right' | 'gaze';
+
+export interface SomaticTest {
+  id: string;
+  date: string;
+  results: { maneuver: SomaticManeuver; change: -1 | 0 | 1 | 2 }[]; // -1 quieter, 0 none, 1 louder, 2 pitch/timbre change
+  somatic: boolean;
+}
+
+export type TherapyMode = 'reset' | 'notched' | 'enrichment' | 'cr';
 
 export interface TherapySession {
   id: string;
@@ -61,13 +73,21 @@ export interface TherapySession {
   params: Record<string, number | string | boolean>;
 }
 
+/** Ecological momentary assessment: quick in-the-moment rating. */
+export interface CheckIn {
+  id: string;
+  ts: string;
+  loudness: number; // 0–10
+  distress: number; // 0–10
+}
+
 export interface JournalEntry {
   id: string;
   date: string; // YYYY-MM-DD
-  loudness: number; // 0-10
-  distress: number; // 0-10
-  sleep: number; // 0-10 quality
-  stress: number; // 0-10
+  loudness: number;
+  distress: number;
+  sleep: number;
+  stress: number;
   noiseExposure: boolean;
   caffeine: boolean;
   alcohol: boolean;
@@ -77,27 +97,52 @@ export interface JournalEntry {
 export interface WeeklyCheck {
   id: string;
   date: string;
-  answers: number[]; // 0-4 each
-  score: number; // 0-100
+  answers: number[];
+  score: number;
+}
+
+export interface ThoughtRecord {
+  id: string;
+  date: string;
+  situation: string;
+  thought: string;
+  feeling: number; // 0–10 distress
+  alternative: string;
+  feelingAfter: number;
+}
+
+export interface MindProgress {
+  lessonsDone: string[];
+  exercises: { id: string; date: string; kind: string; durationS: number }[];
+  thoughts: ThoughtRecord[];
+  spikePlan: string;
 }
 
 export interface Settings {
-  masterVolume: number; // 0..1
+  masterVolume: number;
   preferredEar: Ear;
-  notchWidthOctaves: number; // default 1
+  notchWidthOctaves: number;
   dailyGoalMin: number;
   name: string;
+  onboarded: boolean;
+  headphonesOk: boolean;
+  programStart: string | null; // ISO date
+  blindRi: boolean;
 }
 
 export interface AppData {
-  version: 1;
+  version: 2;
   settings: Settings;
   hearingTests: HearingTest[];
+  spectra: TinnitusSpectrum[];
   matches: TinnitusMatch[];
   riTrials: ResidualInhibitionTrial[];
+  somatic: SomaticTest[];
   sessions: TherapySession[];
+  checkins: CheckIn[];
   journal: JournalEntry[];
   weekly: WeeklyCheck[];
+  mind: MindProgress;
 }
 
 export const defaultSettings: Settings = {
@@ -106,17 +151,25 @@ export const defaultSettings: Settings = {
   notchWidthOctaves: 1,
   dailyGoalMin: 60,
   name: '',
+  onboarded: false,
+  headphonesOk: false,
+  programStart: null,
+  blindRi: true,
 };
 
 export function emptyData(): AppData {
   return {
-    version: 1,
+    version: 2,
     settings: { ...defaultSettings },
     hearingTests: [],
+    spectra: [],
     matches: [],
     riTrials: [],
+    somatic: [],
     sessions: [],
+    checkins: [],
     journal: [],
     weekly: [],
+    mind: { lessonsDone: [], exercises: [], thoughts: [], spikePlan: '' },
   };
 }

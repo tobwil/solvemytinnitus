@@ -1,218 +1,158 @@
-import { h, card, note, button, segmented, slider, clear, geoMedian } from '../ui/dom';
+import { h, btn, page, header, card, seg, range, swap, callout, progress, geoMedian, chip } from '../ui/dom';
+import { freqPad } from '../ui/pad';
 import { store, uid } from '../data/store';
 import { engine, formatHz, octaveDistance } from '../audio/engine';
 import { playTone, playNarrowbandNoise, playNoise, Voice } from '../audio/synth';
+import { navigate, Params } from '../router';
 import { Ear } from '../data/model';
-import { navigate, toast } from '../main';
-
-type Step = 'setup' | 'coarse' | 'fine' | 'loudness' | 'mml' | 'done';
 
 const F_MIN = 500;
 const F_MAX = 18000;
-const LEVEL_MATCH = -30;
+const STEPS = 5; // 3 pitch trials, loudness, MML
 
-export function renderMatching(root: HTMLElement): () => void {
-  let step: Step = 'setup';
-  let ear: Ear = store.get().settings.preferredEar;
-  let timbre: 'tone' | 'hiss' = 'tone';
-  let freq = 8000;
-  let trials: number[] = [];
-  let loudnessDb = LEVEL_MATCH;
-  let mmlDb: number | null = null;
-  let voice: (Voice & { setFreq(f: number): void }) | null = null;
-  let noiseVoice: Voice | null = null;
-  let playing = false;
-
-  root.appendChild(h('h1', null, 'Tinnitus-Matching'));
-  const panel = h('div');
-  root.appendChild(panel);
-
-  const toSlider = (f: number) => Math.log2(f / F_MIN) / Math.log2(F_MAX / F_MIN) * 1000;
-  const fromSlider = (v: number) => F_MIN * Math.pow(F_MAX / F_MIN, v / 1000);
-
-  function stopAll() {
-    voice?.stop(30);
-    voice = null;
-    noiseVoice?.stop(30);
-    noiseVoice = null;
-    playing = false;
-  }
-
-  async function startVoice(db = LEVEL_MATCH) {
+export function renderMatching(root: HTMLElement, params: Params): () => void {
+  const spec = store.latestSpectrum();
+  const prev = store.latestMatch();
+  let ear: Ear = spec?.ear ?? store.get().settings.preferredEar;
+  let timbre: 'tone' | 'hiss' = spec?.timbre ?? prev?.timbre ?? 'tone';
+  const start = Number(params.start) || spec?.peak || prev?.freq || 6000;
+  let freq = start;
+  const trials: number[] = [];
+  let loudnessDb = prev?.loudnessDb ?? -32;
+  let voice: (Voice & { setFreq?(f: number): void }) | null = null;
+  const stop = () => { voice?.stop(60); voice = null; };
+  const startVoice = async (f: number, db = loudnessDb) => {
     await engine.ensure();
-    voice?.stop(10);
-    voice = timbre === 'tone' ? playTone(freq, ear, db) : playNarrowbandNoise(freq, 1 / 3, ear, db);
-    playing = true;
+    stop();
+    voice = timbre === 'tone' ? playTone(f, ear, db) : playNarrowbandNoise(f, 1 / 3, ear, db);
+  };
+  const wrap = h('div');
+  root.appendChild(page(header('Labor · Schritt 3', 'Feinabstimmung'), wrap));
+
+  function setup() {
+    swap(wrap,
+      h('p', { class: 'lead' }, spec
+        ? `Dein Spektrum zeigt den Schwerpunkt bei ${formatHz(spec.peak)}. Jetzt stimmen wir das genau ab: drei unabhängige Durchgänge auf dem Frequenz-Pad, dann Lautheit und Maskierungsschwelle.`
+        : 'Drei unabhängige Durchgänge auf dem Frequenz-Pad, dann Lautheit und Maskierungsschwelle. Tipp: Das Tinnitus-Spektrum vorher macht das Ergebnis deutlich verlässlicher.'),
+      card(null,
+        h('p', { class: 'title-m' }, 'Ohr'),
+        seg<Ear>([{ value: 'both', label: 'Beide' }, { value: 'left', label: 'Links' }, { value: 'right', label: 'Rechts' }], ear, (v) => (ear = v)).el,
+        h('p', { class: 'title-m mt16' }, 'Vergleichsklang'),
+        seg<'tone' | 'hiss'>([{ value: 'tone', label: 'Reiner Ton' }, { value: 'hiss', label: 'Schmalband-Rauschen' }], timbre, (v) => (timbre = v)).el),
+      !spec ? h('div', { class: 'center' }, btn('Erst Spektrum messen', () => navigate('/spectrum'), { variant: 'text' })) : null,
+      btn('Los', () => pitch(), { variant: 'lab', size: 'lg', block: true }));
   }
 
-  function render() {
-    clear(panel);
-    switch (step) {
-      case 'setup': return renderSetup();
-      case 'coarse': return renderCoarse();
-      case 'fine': return renderFine();
-      case 'loudness': return renderLoudness();
-      case 'mml': return renderMml();
-      case 'done': return renderDone();
-    }
-  }
-
-  function renderSetup() {
-    panel.append(
-      card('Vorbereitung',
-        h('ol', { class: 'steps' },
-          h('li', null, 'Kopfhörer aufsetzen, ruhige Umgebung, Lautstärke oben auf ca. 50 %.'),
-          h('li', null, 'Konzentriere dich 10 Sekunden auf deinen Tinnitus: Ist er eher ein reiner Pfeifton oder ein Zischen/Rauschen? Ist er auf einem Ohr lauter?'),
-          h('li', null, 'Du wirst den Vergleichston dreimal unabhängig einstellen. Daraus bilden wir den Median und sehen, wie stabil dein Matching ist.'),
-        ),
-        h('h3', null, 'Welches Ohr?'),
-        segmented<Ear>([{ value: 'left', label: 'Links' }, { value: 'right', label: 'Rechts' }, { value: 'both', label: 'Beide' }], ear, (v) => (ear = v)).el,
-        h('h3', null, 'Klangfarbe'),
-        segmented<'tone' | 'hiss'>([{ value: 'tone', label: 'Reiner Ton (Pfeifen)' }, { value: 'hiss', label: 'Zischen (Schmalband-Rauschen)' }], timbre, (v) => (timbre = v)).el,
-        h('p', { style: 'margin-top:14px' }, button('Weiter →', () => { step = 'coarse'; render(); }, 'btn big')),
-      ),
-      note('Tipp: Die meisten konzertinduzierten Tinnitus liegen zwischen 6 und 12 kHz. Bei sehr hohen Frequenzen (>12 kHz) brauchst du gute Kopfhörer, Billig-Ohrhörer geben dort kaum noch etwas wieder.'),
-    );
-  }
-
-  function renderCoarse() {
-    const trialNo = trials.length + 1;
-    // Start each trial from a randomised position so the three trials are independent
-    if (trials.length) freq = Math.min(F_MAX, Math.max(F_MIN, trials[trials.length - 1] * Math.pow(2, (Math.random() - 0.5) * 1.0)));
-    const freqDisplay = h('div', { class: 'big-number' }, formatHz(freq));
-    const sl = slider({
-      min: 0, max: 1000, step: 1, value: toSlider(freq), label: 'Frequenz grob',
-      format: (v) => formatHz(fromSlider(v)),
-      onInput: (v) => { freq = fromSlider(v); freqDisplay.textContent = formatHz(freq); voice?.setFreq(freq); },
+  function pitch() {
+    const n = trials.length;
+    // independent start point for each trial: random offset up to ±0.75 octave
+    if (n > 0) freq = Math.min(F_MAX, Math.max(F_MIN, start * Math.pow(2, (Math.random() - 0.5) * 1.5)));
+    const pad = freqPad({
+      fMin: F_MIN, fMax: F_MAX, value: freq, overlay: spec?.points,
+      onStart: (f) => { freq = f; startVoice(f); },
+      onMove: (f) => { freq = f; voice?.setFreq?.(f); },
+      onEnd: () => stop(),
     });
-    const playBtn = button(playing ? '■ Stopp' : '▶ Vergleichston abspielen', async () => {
-      if (playing) { stopAll(); playBtn.textContent = '▶ Vergleichston abspielen'; } else { await startVoice(); playBtn.textContent = '■ Stopp'; }
-    }, 'btn');
-    const fine = (semis: number) => {
-      freq = Math.min(F_MAX, Math.max(F_MIN, freq * Math.pow(2, semis / 12)));
-      sl.set(toSlider(freq));
-      freqDisplay.textContent = formatHz(freq);
-      voice?.setFreq(freq);
+    const nudge = (semi: number) => {
+      freq = Math.min(F_MAX, Math.max(F_MIN, freq * Math.pow(2, semi / 12)));
+      pad.set(freq);
+      startVoice(freq);
+      setTimeout(stop, 1200);
     };
-    panel.append(
-      card(`Durchgang ${trialNo} von 3 · Grob-Matching`,
-        h('p', { class: 'muted' }, 'Spiele den Vergleichston ab und schiebe den Regler, bis die Tonhöhe deinem Tinnitus am nächsten kommt. Danach mit den Tasten fein nachjustieren.'),
-        freqDisplay, sl.el,
-        h('div', { class: 'row' },
-          button('−1 Halbton', () => fine(-1), 'btn secondary small'),
-          button('−¼', () => fine(-0.25), 'btn secondary small'),
-          button('+¼', () => fine(0.25), 'btn secondary small'),
-          button('+1 Halbton', () => fine(1), 'btn secondary small'),
-        ),
-        h('p', null, playBtn),
-        h('p', null, button('Passt, Oktave prüfen →', () => { stopAll(); step = 'fine'; render(); }, 'btn big')),
-      ),
-    );
+    const nb = (lbl: string, s: number) => { const b = h('button', { type: 'button' }, lbl); b.addEventListener('click', () => nudge(s)); return b; };
+    swap(wrap,
+      progress(STEPS, n),
+      h('p', { class: 'title-m' }, `Durchgang ${n + 1} von 3`),
+      h('p', { class: 'body' }, 'Halte den Finger auf dem Feld und zieh ihn nach links oder rechts, bis der Ton wie dein Tinnitus klingt. Lass los und vergleiche. Mit den Tasten feinjustieren.'),
+      pad.el,
+      h('div', { class: 'nudge' }, nb('−1 HT', -1), nb('−¼', -0.25), nb('+¼', 0.25), nb('+1 HT', 1)),
+      h('div', { class: 'btn-col' }, btn('Klingt wie mein Tinnitus', () => { freq = pad.get(); stop(); octave(); }, { variant: 'lab', size: 'lg', block: true })));
   }
 
-  function renderFine() {
-    // Octave confusion check: play f/2, f, 2f and let the user choose
-    const candidates = [freq / 2, freq, freq * 2].filter((f) => f >= F_MIN && f <= F_MAX);
-    const info = h('p', { class: 'muted' }, 'Beim Pitch-Matching wird häufig die Oktave verwechselt. Höre die Varianten nacheinander an und wähle die, die deinem Tinnitus wirklich entspricht.');
-    const list = h('div', { class: 'grid2' });
-    for (const f of candidates) {
-      const isCur = Math.abs(f - freq) < 1;
-      const c = h('div', { class: 'stat' },
-        h('div', { class: 'label' }, isCur ? 'Deine Einstellung' : f < freq ? 'Eine Oktave tiefer' : 'Eine Oktave höher'),
-        h('div', { class: 'value' }, formatHz(f)),
-        h('div', { class: 'row', style: 'margin-top:8px' },
-          button('▶ Anhören', async () => { freq = f; await startVoice(); setTimeout(() => stopAll(), 1500); }, 'btn small secondary'),
-          button('Das ist er', () => { freq = f; stopAll(); recordTrial(); }, 'btn small'),
-        ));
-      list.appendChild(c);
-    }
-    panel.append(card('Oktaven-Check', info, list, h('p', { style: 'margin-top:12px' }, button('← Zurück zum Regler', () => { step = 'coarse'; render(); }, 'btn ghost small'))));
+  function octave() {
+    // octave confusions are the most common pitch-matching error
+    const cands = [freq / 2, freq, freq * 2].filter((f) => f >= F_MIN && f <= F_MAX);
+    swap(wrap,
+      progress(STEPS, trials.length),
+      h('p', { class: 'title-m' }, 'Oktaven-Check'),
+      h('p', { class: 'body' }, 'Die häufigste Verwechslung beim Matching ist die Oktave. Hör dir die Varianten an und wähle die, die wirklich passt.'),
+      h('div', { class: 'choices mt16' }, ...cands.map((f) => {
+        const cur = Math.abs(f - freq) < 1;
+        const play = btn('', async () => { await startVoice(f); setTimeout(stop, 1500); }, { variant: 'ghost', size: 'sm', icon: 'play' });
+        const pick = btn('Passt', () => { stop(); trials.push(f); if (trials.length < 3) pitch(); else loudness(); }, { variant: cur ? 'lab' : 'ghost', size: 'sm' });
+        return h('div', { class: 'choice', style: 'cursor:default' },
+          h('div', { class: 'grow' }, h('div', { class: 'ttl num', style: 'font-size:20px' }, formatHz(f)), h('div', { class: 'sub' }, cur ? 'deine Einstellung' : f < freq ? 'eine Oktave tiefer' : 'eine Oktave höher')),
+          play, pick);
+      })));
   }
 
-  function recordTrial() {
-    trials.push(freq);
-    if (trials.length < 3) {
-      toast(`Durchgang ${trials.length} gespeichert: ${formatHz(freq)}`);
-      step = 'coarse';
-    } else {
-      freq = geoMedian(trials);
-      step = 'loudness';
-    }
-    render();
-  }
-
-  function renderLoudness() {
+  function loudness() {
+    freq = geoMedian(trials);
     const spread = Math.max(...trials.map((t) => octaveDistance(t, freq)));
-    const lvl = slider({
-      min: -70, max: -6, step: 1, value: loudnessDb, label: 'Pegel des Vergleichstons', format: (v) => `${v} dB`,
-      onInput: (v) => { loudnessDb = v; voice?.setLevel(v); },
-    });
-    const playBtn = button('▶ Ton abspielen', async () => {
-      if (playing) { stopAll(); playBtn.textContent = '▶ Ton abspielen'; } else { await startVoice(loudnessDb); playBtn.textContent = '■ Stopp'; }
-    }, 'btn');
-    panel.append(
-      card('Ergebnis der drei Durchgänge',
-        h('div', { class: 'big-number' }, formatHz(freq), h('small', null, 'Median')),
-        h('p', { class: 'muted' }, `Einzelwerte: ${trials.map(formatHz).join(' · ')} · größte Abweichung ${(spread * 12).toFixed(1)} Halbtöne`),
-        spread > 0.5 ? note('Die Durchgänge streuen stark (mehr als eine halbe Oktave). Das ist bei hochfrequentem Tinnitus normal, wiederhole das Matching an einem anderen Tag, der Median wird dann stabiler.', 'warn') : note('Gute Übereinstimmung der Durchgänge.', 'ok'),
-      ),
-      card('Lautheits-Matching',
-        h('p', { class: 'muted' }, 'Stelle den Pegel so ein, dass der Vergleichston genauso laut erscheint wie dein Tinnitus.'),
-        lvl.el, h('p', null, playBtn),
-        h('p', null, button('Gleich laut →', () => { stopAll(); step = 'mml'; render(); }, 'btn big')),
-      ),
-    );
+    let playing = false;
+    const r = range({ label: 'Pegel des Vergleichstons', min: -75, max: -8, value: loudnessDb, format: (v) => `${v} dB`, onInput: (v) => { loudnessDb = v; voice?.setLevel(v); } });
+    const play = btn('Abspielen', async () => {
+      if (playing) { stop(); playing = false; play.lastChild!.textContent = 'Abspielen'; return; }
+      await startVoice(freq, loudnessDb); playing = true; play.lastChild!.textContent = 'Stopp';
+    }, { variant: 'ghost', block: true, icon: 'play' });
+    swap(wrap,
+      progress(STEPS, 3),
+      card('glow-lab',
+        h('p', { class: 'eyebrow c-lab' }, 'Median aus 3 Durchgängen'),
+        h('div', { class: 'display-num' }, formatHz(freq).split(' ')[0], h('span', { class: 'unit' }, formatHz(freq).split(' ')[1])),
+        h('div', { class: 'row wrap mt8' }, ...trials.map((t) => chip(formatHz(t))), chip(`Streuung ${(spread * 12).toFixed(1)} HT`, spread > 0.5 ? 'warn' : 'good'))),
+      spread > 0.5 ? callout('Die Durchgänge liegen mehr als eine halbe Oktave auseinander. Das ist bei hohem Tinnitus normal. Wiederhole die Messung an einem anderen Tag.', 'warn') : null,
+      h('p', { class: 'title-m mt16' }, 'Wie laut ist dein Tinnitus?'),
+      h('p', { class: 'body' }, 'Spiel den Ton ab und stell den Pegel so ein, dass er genau so laut wirkt wie dein Tinnitus.'),
+      card(null, play, r.el),
+      btn('Gleich laut', () => { stop(); mml(spread); }, { variant: 'lab', size: 'lg', block: true }));
   }
 
-  function renderMml() {
-    let db = -40;
-    const lvl = slider({
-      min: -70, max: -6, step: 1, value: db, label: 'Pegel Breitbandrauschen', format: (v) => `${v} dB`,
-      onInput: (v) => { db = v; noiseVoice?.setLevel(v); },
-    });
-    const playBtn = button('▶ Rauschen abspielen', async () => {
+  function mml(spread: number) {
+    let db = -50;
+    let noise: Voice | null = null;
+    const r = range({ label: 'Pegel Breitbandrauschen', min: -80, max: -8, value: db, format: (v) => `${v} dB`, onInput: (v) => { db = v; noise?.setLevel(v); } });
+    const play = btn('Rauschen starten', async () => {
       await engine.ensure();
-      if (noiseVoice) { noiseVoice.stop(); noiseVoice = null; playBtn.textContent = '▶ Rauschen abspielen'; } else { noiseVoice = playNoise('white', ear, db); playBtn.textContent = '■ Stopp'; }
-    }, 'btn');
-    panel.append(
-      card('Minimale Maskierungsschwelle (MML)',
-        h('p', { class: 'muted' }, 'Erhöhe das Rauschen langsam, bis du deinen Tinnitus gerade nicht mehr wahrnimmst. Die MML sagt voraus, wie gut Klangtherapien bei dir anschlagen und legt den Pegel für die Residual-Inhibition-Tests fest.'),
-        lvl.el, h('p', null, playBtn),
-        h('div', { class: 'row' },
-          button('Tinnitus ist gerade verdeckt →', () => { mmlDb = db; stopAll(); finish(); }, 'btn big'),
-          button('Überspringen', () => { mmlDb = null; stopAll(); finish(); }, 'btn secondary'),
-        ),
-      ),
-    );
+      if (noise) { noise.stop(); noise = null; play.lastChild!.textContent = 'Rauschen starten'; return; }
+      noise = playNoise('white', ear, db); play.lastChild!.textContent = 'Stopp';
+    }, { variant: 'ghost', block: true, icon: 'play' });
+    const save = (v: number | null) => {
+      noise?.stop();
+      store.update((d) => {
+        d.matches.push({ id: uid(), date: new Date().toISOString(), ear, freq: Math.round(freq), trials: trials.map(Math.round), spreadOctaves: spread, loudnessDb, timbre, mmlDb: v });
+        d.settings.preferredEar = ear;
+      });
+      done();
+    };
+    swap(wrap,
+      progress(STEPS, 4),
+      h('p', { class: 'title-m' }, 'Minimale Maskierungsschwelle'),
+      h('p', { class: 'body' }, 'Starte das Rauschen leise und erhöhe es langsam, bis du deinen Tinnitus gerade nicht mehr hörst. Die Schwelle (MML) ist ein objektiverer Verlaufswert als die Lautheit und legt die Pegel für Labor und Therapie fest.'),
+      card(null, play, r.el),
+      btn('Tinnitus ist gerade verdeckt', () => save(db), { variant: 'lab', size: 'lg', block: true }),
+      h('div', { class: 'center' }, btn('Lässt sich nicht verdecken', () => save(null), { variant: 'text' })),
+      cleanupHook(() => noise?.stop()));
   }
 
-  function finish() {
-    const spread = Math.max(...trials.map((t) => octaveDistance(t, freq)));
-    store.update((d) => {
-      d.matches.push({ id: uid(), date: new Date().toISOString(), ear, freq: Math.round(freq), trials: trials.map(Math.round), spreadOctaves: spread, loudnessDb, timbre, mmlDb });
-      d.settings.preferredEar = ear;
-    });
-    step = 'done';
-    render();
-  }
-
-  function renderDone() {
+  function done() {
     const m = store.latestMatch()!;
-    panel.append(
-      card('Matching gespeichert',
-        h('div', { class: 'big-number' }, formatHz(m.freq)),
-        h('div', { class: 'grid2' },
-          h('div', { class: 'stat' }, h('div', { class: 'label' }, 'Ohr'), h('div', { class: 'value' }, m.ear === 'both' ? 'Beide' : m.ear === 'left' ? 'Links' : 'Rechts')),
-          h('div', { class: 'stat' }, h('div', { class: 'label' }, 'Klangfarbe'), h('div', { class: 'value' }, m.timbre === 'tone' ? 'Ton' : 'Zischen')),
-          h('div', { class: 'stat' }, h('div', { class: 'label' }, 'Lautheit'), h('div', { class: 'value' }, `${m.loudnessDb} dB`)),
-          h('div', { class: 'stat' }, h('div', { class: 'label' }, 'MML'), h('div', { class: 'value' }, m.mmlDb === null ? '—' : `${m.mmlDb} dB`)),
-        ),
-        h('p', { style: 'margin-top:12px' }, button('Weiter ins RI-Labor →', () => navigate('/ri'), 'btn big')),
-        h('p', null, button('Anderes Ohr matchen', () => { trials = []; step = 'setup'; render(); }, 'btn secondary')),
-      ),
-    );
+    swap(wrap,
+      progress(STEPS, STEPS),
+      card('glow-lab center',
+        h('p', { class: 'eyebrow c-lab' }, 'Gespeichert'),
+        h('div', { class: 'display-num' }, formatHz(m.freq).split(' ')[0], h('span', { class: 'unit' }, formatHz(m.freq).split(' ')[1])),
+        h('div', { class: 'grid-3 mt16' },
+          h('div', { class: 'metric' }, h('div', { class: 'k' }, 'Ohr'), h('div', { class: 'v' }, m.ear === 'both' ? 'beide' : m.ear === 'left' ? 'links' : 'rechts')),
+          h('div', { class: 'metric' }, h('div', { class: 'k' }, 'Lautheit'), h('div', { class: 'v' }, String(m.loudnessDb), h('small', null, 'dB'))),
+          h('div', { class: 'metric' }, h('div', { class: 'k' }, 'MML'), h('div', { class: 'v' }, m.mmlDb === null ? '–' : String(m.mmlDb), h('small', null, 'dB'))))),
+      btn('Weiter: Hörprofil', () => navigate('/hearing'), { variant: 'lab', size: 'lg', block: true, iconRight: 'chevR' }),
+      h('div', { class: 'center mt8' }, btn('Anderes Ohr messen', () => { trials.length = 0; setup(); }, { variant: 'text' })));
   }
 
-  render();
-  return () => stopAll();
+  let extraCleanup: (() => void) | null = null;
+  function cleanupHook(fn: () => void): null { extraCleanup = fn; return null; }
+
+  setup();
+  return () => { stop(); extraCleanup?.(); };
 }

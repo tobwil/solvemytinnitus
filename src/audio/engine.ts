@@ -8,6 +8,7 @@ class AudioEngine {
   private _ctx: AudioContext | null = null;
   private master!: GainNode;
   private limiter!: DynamicsCompressorNode;
+  private _analyser!: AnalyserNode;
   private masterVolume = 0.5;
 
   get ctx(): AudioContext {
@@ -22,7 +23,13 @@ class AudioEngine {
       this.limiter.release.value = 0.05;
       this.master = this._ctx.createGain();
       this.master.gain.value = this.masterVolume;
+      this._analyser = this._ctx.createAnalyser();
+      this._analyser.fftSize = 8192;
+      this._analyser.smoothingTimeConstant = 0.6;
+      this._analyser.minDecibels = -120;
+      this._analyser.maxDecibels = -10;
       this.limiter.connect(this.master).connect(this._ctx.destination);
+      this.master.connect(this._analyser);
     }
     return this._ctx;
   }
@@ -42,6 +49,11 @@ class AudioEngine {
       }
     }
     return ctx;
+  }
+
+  get analyser(): AnalyserNode {
+    this.ctx;
+    return this._analyser;
   }
 
   get input(): AudioNode {

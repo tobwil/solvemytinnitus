@@ -63,6 +63,53 @@ export function playTone(freq: number, ear: Ear, levelDb: number): Voice & { set
   };
 }
 
+/**
+ * Amplitude-modulated tone (100 % depth, default 10 Hz) at the tinnitus frequency.
+ * AM tones near the tinnitus pitch can suppress tinnitus in a subset of patients (Reavis 2012; Neff 2017/2019).
+ */
+export function playAmTone(freq: number, ear: Ear, levelDb: number, modHz = 10): Voice {
+  const ctx = engine.ctx;
+  const carrier = ctx.createOscillator();
+  carrier.type = 'sine';
+  carrier.frequency.value = clampFreq(freq);
+  const am = ctx.createGain();
+  am.gain.value = 0.5;
+  const mod = ctx.createOscillator();
+  mod.type = 'sine';
+  mod.frequency.value = modHz;
+  const depth = ctx.createGain();
+  depth.gain.value = 0.5;
+  mod.connect(depth).connect(am.gain);
+  carrier.connect(am);
+  const makeup = ctx.createGain();
+  makeup.gain.value = 1.22; // equalise RMS with an unmodulated tone
+  am.connect(makeup);
+  carrier.start();
+  mod.start();
+  return makeVoice(makeup, ear, levelDb, () => {
+    carrier.stop();
+    mod.stop();
+  });
+}
+
+/** Soft bell used as a cue in guided exercises. */
+export function chime(levelDb = -28): void {
+  const ctx = engine.ctx;
+  const t = ctx.currentTime + 0.01;
+  for (const [f, g] of [[528, 1], [1056, 0.35], [1584, 0.12]] as const) {
+    const o = ctx.createOscillator();
+    o.type = 'sine';
+    o.frequency.value = f;
+    const env = ctx.createGain();
+    env.gain.setValueAtTime(0, t);
+    env.gain.linearRampToValueAtTime(dbToGain(levelDb) * g, t + 0.01);
+    env.gain.exponentialRampToValueAtTime(0.0001, t + 2.2);
+    o.connect(env).connect(engine.input);
+    o.start(t);
+    o.stop(t + 2.3);
+  }
+}
+
 /** Short pulsed tone burst train (for hearing threshold testing). */
 export function playToneBursts(freq: number, ear: Ear, levelDb: number, count = 3, onMs = 200, offMs = 150): Voice {
   const ctx = engine.ctx;
@@ -288,4 +335,31 @@ export function playRain(ear: Ear, levelDb: number): Voice {
 export function playNotchedRain(centerFreq: number, widthOctaves: number, ear: Ear, levelDb: number): Voice {
   const rain = createRainSource();
   return playNotchedSource(rain.node, centerFreq, widthOctaves, ear, levelDb, () => rain.stop());
+}
+
+/**
+ * Sound enrichment noise with 10 Hz amplitude modulation, spectrally emphasised around the tinnitus
+ * region. Modelled after customised AM sound enrichment (Sendesen et al. 2026, Hear Res).
+ */
+export function playAmNoise(centerFreq: number, ear: Ear, levelDb: number, modHz = 10): Voice {
+  const ctx = engine.ctx;
+  const src = noiseSource('pink');
+  const shelf = ctx.createBiquadFilter();
+  shelf.type = 'peaking';
+  shelf.frequency.value = clampFreq(centerFreq);
+  shelf.Q.value = 0.7;
+  shelf.gain.value = 9;
+  const am = ctx.createGain();
+  am.gain.value = 0.6;
+  const mod = ctx.createOscillator();
+  mod.frequency.value = modHz;
+  const depth = ctx.createGain();
+  depth.gain.value = 0.4;
+  mod.connect(depth).connect(am.gain);
+  mod.start();
+  src.connect(shelf).connect(am);
+  return makeVoice(am, ear, levelDb, () => {
+    src.stop();
+    mod.stop();
+  });
 }
