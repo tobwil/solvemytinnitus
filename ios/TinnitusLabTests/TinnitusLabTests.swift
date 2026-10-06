@@ -62,6 +62,12 @@ struct AppLogicTests {
         #expect(SharedStore.pending.isEmpty)
     }
 
+    @Test func everySpokenPhraseHasARecording() {
+        // if this fails after a content change: python Scripts/voice/generate.py (see Scripts/voice/README.md)
+        let missing = VoicePrompts.all.filter { Speech.shared.recording(for: $0) == nil }
+        #expect(missing.isEmpty, "no recording for: \(missing.joined(separator: " | "))")
+    }
+
     @Test func sourceLinksAreCheckable() {
         let pub = SourceLinks.url(for: "Fuller et al. 2020, Cochrane")!.absoluteString
         #expect(pub.hasPrefix("https://pubmed.ncbi.nlm.nih.gov/"))
