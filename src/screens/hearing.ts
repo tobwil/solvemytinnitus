@@ -1,165 +1,129 @@
-import { h, card, note, button, segmented } from '../ui/dom';
+import { h, btn, page, header, card, seg, swap, callout, progress, mean } from '../ui/dom';
+import { icon } from '../ui/icons';
+import { lineChart } from '../ui/chart';
 import { store, uid } from '../data/store';
 import { engine, formatHz } from '../audio/engine';
 import { playToneBursts, Voice } from '../audio/synth';
-import { lineChart } from '../ui/chart';
+import { navigate } from '../router';
 import { HearingPoint } from '../data/model';
 
 const FREQS = [500, 1000, 2000, 3000, 4000, 6000, 8000, 10000, 12000, 14000, 16000];
-const START_LEVEL = -40;
-const MIN_LEVEL = -90;
-const MAX_LEVEL = -6;
+const START = -40, MIN = -95, MAX = -6;
 
-/**
- * Simplified Hughson-Westlake: level rises in 5 dB steps until heard, then drops 10 dB and rises again;
- * threshold = lowest level heard twice on ascending runs.
- */
+/** Simplified Hughson-Westlake (down 10 / up 5); threshold = level heard twice on ascending runs. */
 export function renderHearing(root: HTMLElement): () => void {
   let ear: 'left' | 'right' = 'left';
+  const res: { left: HearingPoint[]; right: HearingPoint[] } = { left: [], right: [] };
   let voice: Voice | null = null;
-  const results: { left: HearingPoint[]; right: HearingPoint[] } = { left: [], right: [] };
-  let fi = 0;
-  let level = START_LEVEL;
-  let heardAt: number[] = [];
-  let running = false;
-  let playing = false;
+  const stop = () => { voice?.stop(10); voice = null; };
+  const wrap = h('div');
+  root.appendChild(page(header('Labor · Schritt 4', 'Hörprofil'), wrap));
 
-  root.appendChild(h('h1', null, 'Hörprofil'));
-  root.appendChild(note('Ergebnisse sind relativ (0 dB = Referenzpegel der App), nicht als klinisches Audiogramm zu lesen. Sie zeigen die Form deines Hörprofils: ein Abfall im Hochtonbereich ist nach Konzert-Lärm typisch und liegt meist in der Nähe der Tinnitus-Frequenz.'));
-
-  const earSeg = segmented([{ value: 'left', label: 'Linkes Ohr' }, { value: 'right', label: 'Rechtes Ohr' }], ear, (v) => { ear = v; reset(); });
-  const status = h('div', { class: 'big-number' }, '—');
-  const sub = h('p', { class: 'muted' }, 'Drücke Start. Es erklingen drei kurze Pieptöne. Drücke „Gehört“, sobald du sie hörst, sonst „Nicht gehört“.');
-  const btnStart = button('Start', () => start(), 'btn');
-  const btnHeard = button('✓ Gehört', () => answer(true), 'btn big');
-  const btnNot = button('✗ Nicht gehört', () => answer(false), 'btn big secondary');
-  const btnReplay = button('↻ Wiederholen', () => play(), 'btn small secondary');
-  btnHeard.disabled = btnNot.disabled = btnReplay.disabled = true;
-
-  const panel = card(null, earSeg.el, status, sub, h('div', { class: 'row' }, btnStart, btnReplay), h('div', { class: 'row', style: 'margin-top:10px' }, btnHeard, btnNot));
-  root.appendChild(panel);
-
-  const chartHost = h('div');
-  root.appendChild(card('Dein Hörprofil', chartHost));
-  drawChart();
-
-  function reset() {
-    fi = 0;
-    level = START_LEVEL;
-    heardAt = [];
-    running = false;
-    btnHeard.disabled = btnNot.disabled = btnReplay.disabled = true;
-    btnStart.disabled = false;
-    status.textContent = '—';
+  function intro() {
+    swap(wrap,
+      h('p', { class: 'lead' }, 'Wir suchen pro Ohr die leiseste hörbare Lautstärke von 0,5 bis 16 kHz. Nach Konzert-Lärm zeigt sich meist ein Abfall im Hochtonbereich, und der Tinnitus sitzt typischerweise genau dort.'),
+      card(null,
+        h('p', { class: 'title-m' }, 'Mit welchem Ohr beginnen?'),
+        seg([{ value: 'left', label: 'Links' }, { value: 'right', label: 'Rechts' }], ear, (v) => (ear = v as 'left' | 'right')).el,
+        h('p', { class: 'small mt8' }, 'Dauer: ca. 3 Minuten pro Ohr. Ganz ruhige Umgebung nötig.')),
+      callout('Die Werte sind relativ zu deinem Kopfhörer, nicht in dB HL wie beim HNO. Sie zeigen die Form deines Hörprofils und eignen sich für Verlaufsvergleiche mit denselben Kopfhörern.'),
+      btn('Test starten', () => run(), { variant: 'lab', size: 'lg', block: true }),
+      chartCard());
   }
 
-  async function start() {
-    await engine.ensure();
-    running = true;
-    btnStart.disabled = true;
-    btnHeard.disabled = btnNot.disabled = btnReplay.disabled = false;
-    fi = 0;
-    level = START_LEVEL;
-    heardAt = [];
-    results[ear] = [];
+  function run() {
+    let fi = 0, level = START;
+    let heard: number[] = [];
+    let presentations = 0;
+    res[ear] = [];
+    const orb = h('div', { class: 'like-orb' }, h('div', { class: 'core' }, icon('ear')));
+    const fLbl = h('p', { class: 'title-m' });
+    const prog = h('div');
+    const yes = btn('Gehört', () => answer(true), { variant: 'lab', size: 'lg', block: true });
+    const no = btn('Nichts gehört', () => answer(false), { variant: 'ghost', size: 'lg', block: true });
+    swap(wrap, prog, card('like-stage', orb, fLbl, h('p', { class: 'small' }, 'Drei kurze Pieptöne. Antworte, sobald du sie hörst, auch wenn sie sehr leise sind.'),
+      btn('Wiederholen', () => play(), { variant: 'text', icon: 'play' })), h('div', { class: 'btn-col' }, yes, no));
+
+    let pending: number | null = null;
+    const schedule = (ms: number) => { if (pending !== null) clearTimeout(pending); pending = window.setTimeout(() => { pending = null; play(); }, ms); };
+    const play = async () => {
+      if (fi >= FREQS.length) return;
+      await engine.ensure();
+      stop();
+      swap(prog, progress(FREQS.length, fi));
+      fLbl.textContent = `${ear === 'left' ? 'Links' : 'Rechts'} · ${formatHz(FREQS[fi])}`;
+      orb.classList.add('playing');
+      setTimeout(() => orb.classList.remove('playing'), 1100);
+      voice = playToneBursts(FREQS[fi], ear, level);
+    };
+    const nextF = (thr: number) => {
+      res[ear].push({ freq: FREQS[fi], level: thr });
+      fi++;
+      heard = [];
+      presentations = 0;
+      level = START;
+      if (fi >= FREQS.length) { if (pending !== null) clearTimeout(pending); return finishEar(); }
+      schedule(350);
+    };
+    const answer = (ok: boolean) => {
+      if (fi >= FREQS.length) return;
+      presentations++;
+      // safety net for inconsistent answers: take the lowest level heard so far
+      if (presentations >= 14) return nextF(heard.length ? Math.min(...heard) : MAX);
+      if (ok) {
+        heard.push(level);
+        if (heard.filter((l) => l === level).length >= 2 || level <= MIN) return nextF(level);
+        level = Math.max(MIN, level - 10);
+      } else {
+        level += 5;
+        if (level >= MAX) return nextF(MAX);
+      }
+      schedule(250);
+    };
     play();
   }
 
-  function play() {
-    if (!running) return;
-    voice?.stop(10);
-    status.textContent = formatHz(FREQS[fi]);
-    status.appendChild(h('small', null, `${level} dB`));
-    playing = true;
-    voice = playToneBursts(FREQS[fi], ear, level);
-    setTimeout(() => (playing = false), 1100);
-  }
-
-  function answer(heard: boolean) {
-    if (!running) return;
-    if (heard) {
-      heardAt.push(level);
-      const count = heardAt.filter((l) => l === level).length;
-      if (count >= 2 || level <= MIN_LEVEL) {
-        results[ear].push({ freq: FREQS[fi], level });
-        nextFreq();
-        return;
-      }
-      level = Math.max(MIN_LEVEL, level - 10);
-    } else {
-      level = Math.min(MAX_LEVEL, level + 5);
-      if (level >= MAX_LEVEL) {
-        results[ear].push({ freq: FREQS[fi], level: MAX_LEVEL });
-        nextFreq();
-        return;
-      }
-    }
-    setTimeout(play, playing ? 400 : 150);
-  }
-
-  function nextFreq() {
-    fi++;
-    heardAt = [];
-    level = START_LEVEL;
-    drawChart();
-    if (fi >= FREQS.length) {
-      running = false;
-      btnHeard.disabled = btnNot.disabled = btnReplay.disabled = true;
-      btnStart.disabled = false;
-      status.textContent = 'Fertig';
-      save();
-      return;
-    }
-    setTimeout(play, 300);
-  }
-
-  function save() {
+  function finishEar() {
+    stop();
     const prev = store.latestHearing();
-    const left = results.left.length ? results.left : prev?.left ?? [];
-    const right = results.right.length ? results.right : prev?.right ?? [];
-    store.update((d) => {
-      d.hearingTests.push({ id: uid(), date: new Date().toISOString(), left, right });
-    });
-    drawChart();
-    sub.textContent = `Ohr ${ear === 'left' ? 'links' : 'rechts'} gespeichert. Wechsle oben das Ohr, um das andere zu testen.`;
+    const other: 'left' | 'right' = ear === 'left' ? 'right' : 'left';
+    store.update((d) => d.hearingTests.push({ id: uid(), date: new Date().toISOString(), left: res.left.length ? res.left : prev?.left ?? [], right: res.right.length ? res.right : prev?.right ?? [] }));
+    const needOther = !res[other].length;
+    swap(wrap,
+      card('glow-lab', h('p', { class: 'eyebrow c-lab' }, 'Gespeichert'), h('p', { class: 'title-m' }, `${ear === 'left' ? 'Linkes' : 'Rechtes'} Ohr fertig`)),
+      needOther ? btn(`Jetzt ${other === 'left' ? 'linkes' : 'rechtes'} Ohr`, () => { ear = other; run(); }, { variant: 'lab', size: 'lg', block: true }) : btn('Weiter: Somatik-Check', () => navigate('/somatic'), { variant: 'lab', size: 'lg', block: true, iconRight: 'chevR' }),
+      chartCard());
   }
 
-  function drawChart() {
-    chartHost.innerHTML = '';
-    const prev = store.latestHearing();
-    const left = results.left.length ? results.left : prev?.left ?? [];
-    const right = results.right.length ? results.right : prev?.right ?? [];
-    const match = store.latestMatch();
-    const series = [
-      { name: 'Links', color: '#4fd1c5', points: left.map((p) => ({ x: p.freq, y: p.level })) },
-      { name: 'Rechts', color: '#fc8181', points: right.map((p) => ({ x: p.freq, y: p.level })) },
-    ];
-    if (match) {
-      series.push({ name: `Tinnitus ${formatHz(match.freq)}`, color: '#f6ad55', points: [{ x: match.freq, y: MAX_LEVEL }, { x: match.freq, y: MIN_LEVEL }], dashed: true } as never);
-    }
-    chartHost.appendChild(
+  function chartCard(): HTMLElement | null {
+    const hr = store.latestHearing();
+    const left = res.left.length ? res.left : hr?.left ?? [];
+    const right = res.right.length ? res.right : hr?.right ?? [];
+    if (!left.length && !right.length) return null;
+    const m = store.latestMatch();
+    const out = card(null, h('p', { class: 'title-m' }, 'Dein Hörprofil'), h('p', { class: 'small', style: 'margin:0 0 6px' }, 'Weiter unten = schlechter gehört'),
       lineChart({
-        series,
-        xLog: true,
-        yInvert: true,
-        yMin: MIN_LEVEL,
-        yMax: MAX_LEVEL,
-        xTicks: [500, 1000, 2000, 4000, 8000, 16000],
-        xFormat: (x) => (x >= 1000 ? `${x / 1000}k` : String(x)),
-        yFormat: (y) => `${Math.round(y)}`,
-        xLabel: 'Frequenz (Hz)',
-        yLabel: 'Schwelle (dB rel.)',
-      }),
-    );
+        series: [
+          { name: 'Links', color: 'var(--lab)', points: left.map((p) => ({ x: p.freq, y: p.level })) },
+          { name: 'Rechts', color: 'var(--mind)', points: right.map((p) => ({ x: p.freq, y: p.level })) },
+        ],
+        xLog: true, yInvert: true, yMin: MIN, yMax: MAX, xMin: 500, xMax: 16000,
+        xTicks: [500, 1000, 2000, 4000, 8000, 16000], xFormat: (x) => (x >= 1000 ? `${x / 1000}k` : String(x)),
+        yTicks: [-90, -70, -50, -30, -10], yFormat: (y) => `${Math.round(y)}`,
+        markers: m ? [{ x: m.freq, color: 'var(--tin)', label: 'Tinnitus' }] : [],
+      }));
+    const drop = (pts: HearingPoint[]) => mean(pts.filter((p) => p.freq >= 8000).map((p) => p.level)) - mean(pts.filter((p) => p.freq <= 2000).map((p) => p.level));
     if (left.length && right.length) {
-      const hf = (pts: HearingPoint[]) => pts.filter((p) => p.freq >= 6000).map((p) => p.level);
-      const lf = (pts: HearingPoint[]) => pts.filter((p) => p.freq <= 2000).map((p) => p.level);
-      const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : NaN);
-      const dropL = avg(hf(left)) - avg(lf(left));
-      const dropR = avg(hf(right)) - avg(lf(right));
-      chartHost.appendChild(h('p', { class: 'muted' }, `Hochton-Abfall (≥6 kHz vs. ≤2 kHz): links ${dropL.toFixed(0)} dB, rechts ${dropR.toFixed(0)} dB. ${Math.max(dropL, dropR) > 25 ? 'Deutlicher Hochton-Abfall: eine Versorgung mit Hörgeräten/Hochton-Verstärkung kann Tinnitus messbar reduzieren, sprich das beim HNO an.' : ''}`));
+      const dl = drop(left), dr = drop(right);
+      const worst = Math.max(dl, dr);
+      out.append(h('div', { class: 'grid-2 mt8' },
+        h('div', { class: 'metric' }, h('div', { class: 'k' }, 'Hochton-Abfall links'), h('div', { class: 'v' }, `${dl.toFixed(0)}`, h('small', null, 'dB'))),
+        h('div', { class: 'metric' }, h('div', { class: 'k' }, 'Hochton-Abfall rechts'), h('div', { class: 'v' }, `${dr.toFixed(0)}`, h('small', null, 'dB')))));
+      if (worst > 20) out.append(callout(h('span', null, h('b', null, 'Deutlicher Hochton-Abfall. '), 'Hörgeräte gehören zu den am besten belegten Tinnitus-Maßnahmen, wenn ein Hörverlust vorliegt (UNITI-Studie 2025, S3-Leitlinie). Lass beim HNO ein Tonaudiogramm inklusive Hochtonbereich bis 16 kHz machen.'), 'warn'));
     }
+    return out;
   }
 
-  return () => voice?.stop(10);
+  intro();
+  return stop;
 }

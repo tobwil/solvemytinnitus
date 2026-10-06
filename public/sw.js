@@ -1,4 +1,4 @@
-const CACHE = 'tinnitus-lab-v1';
+const CACHE = 'tinnitus-lab-v2';
 self.addEventListener('install', (e) => {
   self.skipWaiting();
 });
