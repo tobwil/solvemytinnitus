@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>$(DEVELOPMENT_LANGUAGE)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Tinnitus Lab</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>io.solvemytinnitus.lab</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>tinnituslab</string>
+			</array>
+		</dict>
+	</array>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSApplicationCategoryType</key>
+	<string>public.app-category.healthcare-fitness</string>
+	<key>NSAppleMusicUsageDescription</key>
+	<string>Um eigene, nicht kopiergeschützte Musik mit einer Lücke bei deiner Tinnitus-Frequenz abzuspielen.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>Tinnitus Lab liest auf deinen Wunsch dein Audiogramm aus Apples Hörtest, Schlaf, Herzfrequenzvariabilität sowie Kopfhörer- und Umgebungslärm. Damit erkennt die App Auslöser automatisch. Die Daten bleiben auf deinem Gerät und in deiner iCloud.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>Tinnitus Lab trägt Atemübungen und Kopf-Training als Achtsamkeitsminuten in Health ein.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Mit AirPods misst Tinnitus Lab die Beweglichkeit deines Nackens und führt dich durch die Dehnübungen.</string>
+	<key>NSSupportsLiveActivities</key>
+	<true/>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>io.solvemytinnitus.lab.checkin</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>audio</string>
+		<string>remote-notification</string>
+	</array>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UIColorName</key>
+		<string>LaunchBackground</string>
+	</dict>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+	</array>
+	<key>UIUserInterfaceStyle</key>
+	<string>Automatic</string>
+</dict>
+</plist>

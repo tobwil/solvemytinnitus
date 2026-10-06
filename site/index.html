@@ -1,0 +1,508 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tinnitus Lab – vom Problem über die Forschung zur App</title>
+<meta name="description" content="Chronischer Tinnitus betrifft jeden siebten Erwachsenen. Was die Forschung wirklich weiß – und eine App, die misst, was bei dir wirkt, statt Heilung zu versprechen.">
+<meta property="og:title" content="Tinnitus Lab – messen, was bei dir wirkt">
+<meta property="og:description" content="Vom Problem über die Forschung zur App: ein ehrliches, privates Selbst-Experiment gegen chronischen Tinnitus.">
+<meta property="og:image" content="screenshots/01-fluss.png">
+<meta name="theme-color" content="#07090D" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#F3F5F8" media="(prefers-color-scheme: light)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2307090D'/%3E%3Cpath d='M8 36c6 0 6-12 12-12s6 18 12 18 6-24 12-24 6 18 12 18' fill='none' stroke='%235EEAD4' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+:root{
+  --bg:#F3F5F8;--bg2:#FFFFFF;--ink:#0B1220;--ink2:rgba(11,18,32,.68);--ink3:rgba(11,18,32,.45);
+  --line:rgba(15,23,42,.10);--card:rgba(255,255,255,.72);
+  --teal:#0D9488;--teal-soft:rgba(13,148,136,.12);--amber:#D97706;--amber-soft:rgba(217,119,6,.12);
+  --slate:#52627A;--warn:#EA580C;--good:#16A34A;
+  --radius:22px;--max:1120px;
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#07090D;--bg2:#0D1118;--ink:#EEF2F7;--ink2:rgba(238,242,247,.70);--ink3:rgba(238,242,247,.45);
+  --line:rgba(255,255,255,.09);--card:rgba(255,255,255,.045);
+  --teal:#5EEAD4;--teal-soft:rgba(94,234,212,.12);--amber:#FBBF24;--amber-soft:rgba(251,191,36,.12);
+  --slate:#AEBBD0;--warn:#FB923C;--good:#4ADE80;
+}}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.65 -apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","Segoe UI",Roboto,sans-serif;overflow-x:hidden}
+h1,h2,h3{font-family:ui-rounded,"SF Pro Rounded",-apple-system,"Segoe UI",sans-serif;line-height:1.08;letter-spacing:-.02em;margin:0}
+h1{font-size:clamp(44px,8vw,92px);font-weight:800}
+h2{font-size:clamp(32px,4.6vw,54px);font-weight:800}
+h3{font-size:21px;font-weight:700;letter-spacing:-.01em}
+p{margin:0 0 1em}
+a{color:var(--teal);text-decoration:none}
+a:hover{text-decoration:underline}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
+.eyebrow{font-size:13px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink3);margin-bottom:14px}
+.eyebrow.teal{color:var(--teal)}.eyebrow.amber{color:var(--amber)}
+.lead{font-size:clamp(19px,2.1vw,23px);color:var(--ink2);max-width:40ch}
+.muted{color:var(--ink2)}.small{font-size:14px}.tiny{font-size:12.5px;color:var(--ink3)}
+.amber{color:var(--amber)}.teal{color:var(--teal)}
+
+/* aurora */
+.aurora{position:fixed;inset:0;z-index:-1;pointer-events:none;background:
+  radial-gradient(60vw 40vh at 15% -5%,var(--teal-soft),transparent 70%),
+  radial-gradient(50vw 35vh at 90% 0%,var(--amber-soft),transparent 70%),var(--bg)}
+
+/* nav */
+nav.top{position:sticky;top:0;z-index:10;backdrop-filter:saturate(1.4) blur(16px);-webkit-backdrop-filter:saturate(1.4) blur(16px);background:color-mix(in srgb,var(--bg) 72%,transparent);border-bottom:1px solid var(--line)}
+nav.top .wrap{display:flex;align-items:center;gap:20px;height:58px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;color:var(--ink)}
+.brand svg{width:28px;height:28px}
+nav.top ol{display:flex;gap:4px;list-style:none;margin:0 0 0 auto;padding:0;counter-reset:ch}
+nav.top li a{display:block;padding:6px 11px;border-radius:999px;color:var(--ink2);font-size:14px;font-weight:600}
+nav.top li a:hover,nav.top li a.on{background:var(--teal-soft);color:var(--teal);text-decoration:none}
+@media (max-width:860px){nav.top ol{display:none}}
+
+/* hero */
+.hero{padding:80px 0 40px}
+.hero .grid{display:grid;grid-template-columns:1.15fr .85fr;gap:40px;align-items:center}
+.hero h1 span{display:block}
+.hero .lead{margin-top:22px}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin-top:30px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:14px 22px;border-radius:16px;font-weight:700;font-size:16px}
+.btn.primary{background:var(--teal);color:var(--bg)}
+.btn.ghost{border:1px solid var(--line);color:var(--ink);background:var(--card)}
+.btn:hover{text-decoration:none;transform:translateY(-1px)}
+.phones{position:relative;height:640px}
+.phones img{position:absolute;width:300px;height:auto;filter:drop-shadow(0 30px 40px rgba(0,0,0,.18))}
+.phones img:first-child{left:0;top:30px;transform:rotate(-4deg)}
+.phones img:last-child{right:0;top:0;transform:rotate(3deg)}
+@media (max-width:900px){.hero .grid{grid-template-columns:1fr}.phones{height:520px;max-width:460px;margin:0 auto;width:100%}.phones img{width:240px}}
+.wave{display:block;width:100%;height:120px;margin-top:20px}
+.wave path{fill:none;stroke-linecap:round}
+
+/* chapters */
+section.ch{padding:110px 0;border-top:1px solid var(--line)}
+.chnum{font:800 15px/1 ui-rounded,-apple-system,sans-serif;color:var(--teal);letter-spacing:.08em}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:56px;align-items:start}
+@media (max-width:860px){.two{grid-template-columns:1fr;gap:32px}}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:44px 0 10px}
+@media (max-width:760px){.stats{grid-template-columns:1fr}}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px}
+.stat b{display:block;font:800 clamp(40px,5vw,56px)/1 ui-rounded,-apple-system,sans-serif;color:var(--amber);letter-spacing:-.03em;margin-bottom:10px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:26px}
+blockquote{margin:30px 0;padding:0 0 0 22px;border-left:3px solid var(--amber);font:600 clamp(22px,2.6vw,28px)/1.35 ui-rounded,-apple-system,sans-serif;color:var(--ink)}
+blockquote cite{display:block;margin-top:10px;font:400 14px/1.4 -apple-system,sans-serif;color:var(--ink3);font-style:normal}
+
+/* loop */
+.loop{width:100%;max-width:460px;margin:0 auto;display:block}
+.loop text{font:600 15px -apple-system,sans-serif;fill:var(--ink)}
+.loop .sub{font-weight:400;font-size:12.5px;fill:var(--ink2)}
+
+/* evidence ladder */
+.ladder{display:grid;gap:14px;margin-top:40px}
+.rung{display:grid;grid-template-columns:240px 1fr;gap:24px;align-items:start;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px 24px}
+@media (max-width:760px){.rung{grid-template-columns:minmax(0,1fr);gap:10px}}
+.rung>*{min-width:0}
+.rung h3{display:flex;align-items:center;gap:10px}
+.dots{display:inline-flex;gap:3px}.dots i{width:8px;height:8px;border-radius:4px;background:var(--line)}
+.dots.l4 i{background:var(--good)}.dots.l3 i:nth-child(-n+3){background:var(--teal)}.dots.l2 i:nth-child(-n+2){background:var(--amber)}.dots.l1 i:nth-child(1){background:var(--warn)}
+.items{display:flex;flex-wrap:wrap;gap:8px}
+.pill{display:inline-block;padding:6px 12px;border-radius:999px;border:1px solid var(--line);font-size:14.5px;font-weight:600;background:var(--bg2)}
+.pill small{font-weight:400;color:var(--ink3)}
+.insight{margin-top:44px;padding:34px;border-radius:28px;background:linear-gradient(135deg,var(--teal-soft),transparent 70%),var(--card);border:1px solid var(--line)}
+.insight p{font:700 clamp(22px,2.8vw,32px)/1.3 ui-rounded,-apple-system,sans-serif;margin:0;max-width:30ch}
+
+/* steps */
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:44px;counter-reset:s}
+@media (max-width:900px){.steps{grid-template-columns:1fr 1fr}}@media (max-width:560px){.steps{grid-template-columns:1fr}}
+.step{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px;position:relative}
+.step::before{counter-increment:s;content:counter(s);display:grid;place-items:center;width:34px;height:34px;border-radius:12px;background:var(--teal-soft);color:var(--teal);font-weight:800;margin-bottom:14px}
+.step p{font-size:15.5px;color:var(--ink2);margin:8px 0 0}
+
+/* rooms */
+.room{display:grid;grid-template-columns:340px 1fr;gap:64px;align-items:center;margin-top:90px}
+.room.flip{grid-template-columns:1fr 340px}.room.flip figure{order:2}
+.room figure{margin:0}.room img{width:100%;height:auto}
+.room ul{padding-left:20px;color:var(--ink2)}.room li{margin:6px 0}
+@media (max-width:860px){.room,.room.flip{grid-template-columns:1fr;gap:24px}.room.flip figure{order:0}.room figure{max-width:300px;margin:0 auto}}
+
+/* gallery: no visible scrollbar; fades + arrows only where more is, dots below */
+.carousel{position:relative;margin-top:40px}
+.gallery{display:flex;gap:22px;overflow-x:auto;scroll-snap-type:x mandatory;padding:10px 24px 10px;margin:0 -24px;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;
+  --fl:0px;--fr:0px;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 var(--fl),#000 calc(100% - var(--fr)),transparent 100%);
+          mask-image:linear-gradient(90deg,transparent 0,#000 var(--fl),#000 calc(100% - var(--fr)),transparent 100%)}
+.gallery::-webkit-scrollbar{display:none}
+.carousel.l .gallery{--fl:90px}.carousel.r .gallery{--fr:90px}
+.gallery figure{flex:0 0 250px;margin:0;scroll-snap-align:center;text-align:center}
+.gallery img{width:100%;height:auto}
+.gallery figcaption{font-size:14px;color:var(--ink2);margin-top:4px}
+.navbtn{position:absolute;top:calc(50% - 40px);width:48px;height:48px;border-radius:50%;display:grid;place-items:center;cursor:pointer;
+  border:1px solid var(--line);background:color-mix(in srgb,var(--bg2) 70%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  color:var(--ink);box-shadow:0 8px 24px rgba(0,0,0,.12);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:2}
+.navbtn svg{width:20px;height:20px}
+.navbtn.prev{left:-6px;transform:translateX(6px)}.navbtn.next{right:-6px;transform:translateX(-6px)}
+.carousel.l .navbtn.prev,.carousel.r .navbtn.next{opacity:1;pointer-events:auto;transform:none}
+.navbtn:hover{border-color:var(--teal);color:var(--teal)}
+.navbtn:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.cdots{display:flex;justify-content:center;gap:8px;margin-top:18px}
+.cdots button{width:8px;height:8px;padding:0;border:0;border-radius:4px;background:var(--line);cursor:pointer;transition:width .3s,background .3s}
+.cdots button.on{width:26px;background:var(--teal)}
+@media (hover:none){.navbtn{display:none}}
+
+/* principles */
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:40px}
+@media (max-width:900px){.grid4{grid-template-columns:1fr 1fr}}@media (max-width:560px){.grid4{grid-template-columns:1fr}}
+.grid4 .card h3{margin:10px 0 8px}.grid4 .card p{font-size:15.5px;color:var(--ink2);margin:0}
+.ico{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;background:var(--teal-soft);color:var(--teal)}
+.ico svg{width:22px;height:22px}
+.tech{columns:2;column-gap:40px;padding-left:20px;color:var(--ink2)}.tech li{break-inside:avoid;margin:6px 0}
+@media (max-width:700px){.tech{columns:1}}
+
+/* sources */
+.sources{columns:2;column-gap:40px;font-size:14.5px;color:var(--ink2);padding-left:20px}
+.sources li{break-inside:avoid;margin:0 0 8px}
+@media (max-width:700px){.sources{columns:1}}
+.warnbox{border:1px solid color-mix(in srgb,var(--warn) 40%,transparent);background:color-mix(in srgb,var(--warn) 8%,transparent);border-radius:18px;padding:18px 20px;font-size:15.5px}
+footer{padding:60px 0 80px;border-top:1px solid var(--line);color:var(--ink3);font-size:14px}
+footer .wrap{display:flex;flex-wrap:wrap;gap:16px 40px;justify-content:space-between}
+
+/* reveal */
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .7s ease,transform .7s ease}
+.reveal.in{opacity:1;transform:none}
+@media (prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}}
+</style>
+</head>
+<body>
+<div class="aurora" aria-hidden="true"></div>
+
+<nav class="top" aria-label="Kapitel">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="16" fill="#07090D"/><path d="M8 36c6 0 6-12 12-12s6 18 12 18 6-24 12-24 6 18 12 18" fill="none" stroke="#5EEAD4" stroke-width="5" stroke-linecap="round"/></svg>
+      Tinnitus Lab
+    </a>
+    <ol>
+      <li><a href="#problem">Das Problem</a></li>
+      <li><a href="#kopf">Im Kopf</a></li>
+      <li><a href="#forschung">Die Forschung</a></li>
+      <li><a href="#idee">Die Idee</a></li>
+      <li><a href="#app">Die App</a></li>
+      <li><a href="#quellen">Quellen</a></li>
+    </ol>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap grid">
+    <div>
+      <div class="eyebrow teal">Open Source · iPhone, Apple Watch &amp; Web</div>
+      <h1><span>Der Ton,</span><span class="amber">der bleibt.</span></h1>
+      <p class="lead">Chronischer Tinnitus hat keine Heilung. Aber er ist veränderbar – und was hilft, ist bei jedem anders. Tinnitus Lab misst, was bei <em>dir</em> wirkt, statt etwas zu versprechen.</p>
+      <div class="cta">
+        <a class="btn primary" href="#problem">Die Geschichte lesen ↓</a>
+        <a class="btn ghost" href="app/">Web-App ausprobieren</a>
+        <a class="btn ghost" href="https://github.com/tobwil/solvemytinnitus">Code auf GitHub</a>
+      </div>
+    </div>
+    <div class="phones">
+      <img src="screenshots/10-fluss-dunkel.png" alt="Tinnitus Lab im Dunkelmodus: der Tag als Welle mit Zeitleiste" width="775" height="1483">
+      <img src="screenshots/01-fluss.png" alt="Tinnitus Lab: Startbildschirm „Fluss“ mit Tageswelle, Check-in und Zeitleiste" width="775" height="1483">
+    </div>
+  </div>
+  <div class="wrap">
+    <svg class="wave" viewBox="0 0 1200 120" preserveAspectRatio="none" aria-hidden="true">
+      <path id="w1" d="" stroke="var(--amber)" stroke-width="3" opacity=".9"/>
+      <path id="w2" d="" stroke="var(--teal)" stroke-width="2" opacity=".5"/>
+    </svg>
+  </div>
+</header>
+
+<main>
+<!-- 1 -->
+<section class="ch" id="problem">
+  <div class="wrap">
+    <div class="chnum reveal">KAPITEL 1</div>
+    <div class="two">
+      <div class="reveal">
+        <h2>Ein Geräusch, das niemand sonst hört.</h2>
+      </div>
+      <div class="reveal">
+        <p class="lead">Ein Pfeifen, Zischen oder Rauschen, Tag und Nacht. Meist hochfrequent, oft nach Lärm – einem Konzert, einem Knall, Jahren im Großraumbüro mit Kopfhörern.</p>
+        <p class="muted">Für die meisten ist es ein Hintergrundgeräusch. Für einige wird es zum Zentrum des Tages: Schlaf, Konzentration und Stimmung leiden, die Stille wird zum Feind.</p>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat reveal"><b>~14&nbsp;%</b>der Erwachsenen weltweit haben Tinnitus.<div class="tiny">Jarach et al. 2022, JAMA Neurology</div></div>
+      <div class="stat reveal"><b>~2&nbsp;%</b>sind stark belastet – das sind Millionen Menschen allein in Europa.<div class="tiny">Jarach et al. 2022</div></div>
+      <div class="stat reveal"><b>0</b>zugelassene Medikamente. Eine Heilung für chronischen Lärm-Tinnitus gibt es nicht.<div class="tiny">S3-Leitlinie 2022; Searchfield et al. 2023</div></div>
+    </div>
+    <blockquote class="reveal">„Damit müssen Sie leben.“<cite>Der Satz, den viele Betroffene als Erstes hören – und der so nicht stimmt. Man kann lernen, anders damit zu leben. Das ist ein Unterschied.</cite></blockquote>
+  </div>
+</section>
+
+<!-- 2 -->
+<section class="ch" id="kopf">
+  <div class="wrap">
+    <div class="chnum reveal">KAPITEL 2</div>
+    <div class="two">
+      <div class="reveal">
+        <h2>Das Ohr meldet zu wenig. Das Gehirn dreht lauter.</h2>
+        <p class="lead" style="margin-top:22px">Nach einem Hörschaden im Hochtonbereich fehlen dem Gehirn Signale. Es erhöht die Verstärkung – wie ein Radio, das bei schlechtem Empfang lauter rauscht. Das Ergebnis hörst du als Ton.</p>
+        <p class="muted">Ob dieser Ton belastet, entscheidet aber nicht das Ohr, sondern die Bewertung im Gehirn. Wird er als Gefahr markiert, steigen Stress und Aufmerksamkeit – und er wird noch deutlicher. Ein Teufelskreis. Genau hier setzt die am besten belegte Behandlung an.</p>
+        <p class="tiny">Modell der zentralen Verstärkung: Auerbach et al. 2014; Schaette &amp; McAlpine 2011 · Aufmerksamkeit &amp; Bewertung: Fuller et al. 2020 (Cochrane)</p>
+      </div>
+      <svg class="loop reveal" viewBox="0 0 460 460" role="img" aria-label="Teufelskreis: Tinnitus wird bemerkt, als bedrohlich bewertet, Stress und Aufmerksamkeit steigen, er wird lauter wahrgenommen">
+        <defs><marker id="arr" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="var(--amber)"/></marker></defs>
+        <circle cx="230" cy="230" r="150" fill="none" stroke="var(--line)" stroke-width="2"/>
+        <path d="M269 85 A150 150 0 0 1 375 269" fill="none" stroke="var(--amber)" stroke-width="3" marker-end="url(#arr)"/>
+        <path d="M336 336 A150 150 0 0 1 124 336" fill="none" stroke="var(--amber)" stroke-width="3" marker-end="url(#arr)"/>
+        <path d="M85 269 A150 150 0 0 1 191 85" fill="none" stroke="var(--amber)" stroke-width="3" marker-end="url(#arr)"/>
+        <g text-anchor="middle">
+          <circle cx="230" cy="80" r="8" fill="var(--amber)"/>
+          <text x="230" y="56">Ton wird bemerkt</text>
+          <circle cx="360" cy="305" r="8" fill="var(--amber)"/>
+          <text x="368" y="400">„Das ist schlimm“</text><text class="sub" x="368" y="418">Bewertung als Gefahr</text>
+          <circle cx="100" cy="305" r="8" fill="var(--amber)"/>
+          <text x="92" y="400">Stress &amp; Fokus</text><text class="sub" x="92" y="418">er wird lauter erlebt</text>
+          <text x="230" y="222" style="font-size:20px;font-weight:800">Teufelskreis</text>
+          <text class="sub" x="230" y="246">Kopf-Training durchbricht ihn</text>
+        </g>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section class="ch" id="forschung">
+  <div class="wrap">
+    <div class="chnum reveal">KAPITEL 3</div>
+    <h2 class="reveal" style="max-width:18ch">Was die Forschung wirklich weiß.</h2>
+    <p class="lead reveal" style="margin-top:22px">Über Tinnitus wird viel versprochen. Wir haben die Studienlage bis Oktober 2026 sortiert – nach dem, was in kontrollierten Studien standhält.</p>
+    <div class="ladder">
+      <div class="rung reveal">
+        <div><h3><span class="dots l4"><i></i><i></i><i></i><i></i></span>Nachweislich wirksam</h3><p class="tiny" style="margin-top:6px">senkt die Belastung, kaum die Lautheit</p></div>
+        <div class="items">
+          <span class="pill">Kognitive Verhaltenstherapie <small>Cochrane 2020, UNITI 2025</small></span>
+          <span class="pill">Hörgeräte bei Hörverlust <small>S3-Leitlinie 2022</small></span>
+        </div>
+      </div>
+      <div class="rung reveal">
+        <div><h3><span class="dots l3"><i></i><i></i><i></i><i></i></span>Vielversprechend</h3><p class="tiny" style="margin-top:6px">gute Signale, noch nicht gesichert</p></div>
+        <div class="items">
+          <span class="pill">Bimodale Neuromodulation <small>TENT-A3 2024</small></span>
+          <span class="pill">Physiotherapie bei somatischem Tinnitus <small>Michiels 2016</small></span>
+          <span class="pill">10-Hz-moduliertes Rauschen <small>eine Studie</small></span>
+        </div>
+      </div>
+      <div class="rung reveal">
+        <div><h3><span class="dots l2"><i></i><i></i><i></i><i></i></span>Kurzfristig wirksam</h3><p class="tiny" style="margin-top:6px">Langzeiteffekt offen</p></div>
+        <div class="items">
+          <span class="pill">Residual Inhibition <small>Roberts 2008</small></span>
+          <span class="pill">Klanganreicherung <small>hilft beim Einschlafen</small></span>
+        </div>
+      </div>
+      <div class="rung reveal">
+        <div><h3><span class="dots l1"><i></i><i></i><i></i><i></i></span>Nicht besser als Placebo</h3><p class="tiny" style="margin-top:6px">in großen oder gepoolten Studien</p></div>
+        <div class="items">
+          <span class="pill">Notched Music <small>Meta-Analysen 2024</small></span>
+          <span class="pill">Akustische CR-Neuromodulation <small>Hall 2022</small></span>
+          <span class="pill">Medikamente &amp; Regeneration <small>Phase 2 gescheitert</small></span>
+          <span class="pill">rTMS / tDCS <small>26 RCTs gepoolt</small></span>
+        </div>
+      </div>
+    </div>
+    <div class="insight reveal">
+      <div class="eyebrow teal">Die wichtigste Erkenntnis</div>
+      <p>Die meisten Klangverfahren wirken im Einzelfall – aber nicht im Durchschnitt.</p>
+      <p class="muted" style="font:400 17px/1.6 -apple-system,sans-serif;margin-top:14px;max-width:62ch">Eine Studie mittelt über hunderte Menschen. Wenn ein Drittel profitiert und der Rest nicht, sieht das Ergebnis nach „wirkt nicht“ aus. Für dich zählt aber nur eine Frage: Hilft es <em>mir</em>?</p>
+    </div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="ch" id="idee">
+  <div class="wrap">
+    <div class="chnum reveal">KAPITEL 4</div>
+    <div class="two">
+      <h2 class="reveal">Die Idee: ein Experiment mit einer Person – dir.</h2>
+      <p class="lead reveal">Statt „Probier mal Rauschen“ macht Tinnitus Lab aus dem Ausprobieren ein strukturiertes Selbst-Experiment. Ehrlich gekennzeichnet, mit deinen eigenen Daten, über acht Wochen.</p>
+    </div>
+    <div class="steps">
+      <div class="step reveal"><h3>Vermessen</h3><p>Frequenz-Spektrum per Ähnlichkeits-Bewertung, Feinabstimmung, Maskierungsschwelle, Hörprofil bis 16&nbsp;kHz, Somatik-Check.</p></div>
+      <div class="step reveal"><h3>Verblindet testen</h3><p>Sechs Klänge im RI-Labor, ohne dass du weißt, welcher läuft. Der wirksamste wird dein Reset-Klang.</p></div>
+      <div class="step reveal"><h3>Üben</h3><p>Klangprogramme auf deine Frequenz, Kopf-Training nach KVT, geführte Nacken- und Kiefer-Programme.</p></div>
+      <div class="step reveal"><h3>Auswerten</h3><p>Vorher/nachher-Bewertungen, Check-ins über den Tag, „Was wirkt bei dir?“ mit Konfidenzbereich statt Bauchgefühl.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section class="ch" id="app">
+  <div class="wrap">
+    <div class="chnum reveal">KAPITEL 5</div>
+    <h2 class="reveal" style="max-width:20ch">Drei Räume. Eine Geschichte.</h2>
+    <p class="lead reveal" style="margin-top:22px">Keine Wand aus Kacheln. Die App erzählt deinen Tag – in zwei Farben: <span class="teal">Teal</span> für Ruhe und alles, was du tust, <span class="amber">Amber</span> für den Tinnitus selbst. Nach einem lauten Check-in wird der Hintergrund wärmer.</p>
+
+    <div class="room reveal">
+      <figure><img src="screenshots/01-fluss.png" alt="Fluss: Tageswelle, Check-in, Zeitleiste" loading="lazy" width="775" height="1483"></figure>
+      <div>
+        <div class="eyebrow amber">Fluss</div>
+        <h3 style="font-size:30px">Der Tag als Welle.</h3>
+        <p class="muted" style="margin-top:12px">Ein Satz, der den Tag deutet („Leiser als sonst.“). Darunter die Lautheit als Welle, Geübtes als Balken, gestern gestrichelt. Der Check-in liegt direkt im Fluss – zwei Fragen, zehn Sekunden. Eine Zeitleiste führt von heute Morgen über <b>Jetzt</b> zu dem, was noch offen ist.</p>
+        <ul><li>Mehrere kurze Einschätzungen am Tag zeigen Muster, die ein Tageswert verdeckt</li><li>Jeder Eintrag lässt sich ändern oder löschen</li></ul>
+      </div>
+    </div>
+
+    <div class="room flip reveal">
+      <figure><img src="screenshots/02-ueben.png" alt="Üben: Was brauchst du jetzt?" loading="lazy" width="775" height="1483"></figure>
+      <div>
+        <div class="eyebrow teal">Üben</div>
+        <h3 style="font-size:30px">Was brauchst du jetzt?</h3>
+        <p class="muted" style="margin-top:12px">Üben beginnt beim Befinden, nicht bei der Funktionsliste: <i>Er ist laut · Einschlafen · Verspannt · Gedankenkarussell · Mein Plan</i>. Ein klarer Vorschlag, dazu passende Übungen – und darunter die Bibliothek aus Klang, Kopf und Körper.</p>
+        <ul><li>Klänge mit Live-Spektrum, Sleep-Timer, Sperrbildschirm und Live Activity</li><li>8 Lektionen nach kognitiver Verhaltenstherapie, geführte Atem- und Achtsamkeitsübungen</li><li>Nacken- und Kiefer-Programm, Schritt für Schritt, mit Kontraindikations-Check</li></ul>
+      </div>
+    </div>
+
+    <div class="room reveal">
+      <figure><img src="screenshots/03-ich.png" alt="Ich: Porträt des Tinnitus mit Frequenz, Verlauf und Erkenntnissen" loading="lazy" width="775" height="1483"></figure>
+      <div>
+        <div class="eyebrow teal">Ich</div>
+        <h3 style="font-size:30px">Ein Porträt deines Tinnitus.</h3>
+        <p class="muted" style="margin-top:12px">Frequenz, Klangcharakter, Maskierbarkeit – und ein Knopf „So klingt mein Tinnitus“, um ihn Angehörigen leise vorzuspielen. Vier Wochen Verlauf, und statt weiterer Diagramme ganze Sätze: <i>„Nach der Reset-Sitzung war er im Schnitt 1,7 Punkte leiser.“</i></p>
+        <ul><li>Beobachtungen, kein Wirkungsnachweis – das steht auch so da</li><li>Apple Health: Schlaf, HRV, Ruhepuls, Lärm, Kopfhörer-Pegel, Audiogramm</li><li>Bericht als PDF für die HNO-Praxis</li></ul>
+      </div>
+    </div>
+
+    <div class="carousel reveal" id="carousel">
+      <button class="navbtn prev" type="button" aria-label="Vorherige Bildschirme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button class="navbtn next" type="button" aria-label="Weitere Bildschirme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+      <div class="gallery" role="list" aria-label="Weitere Bildschirme">
+        <figure role="listitem"><img src="screenshots/04-klang.png" alt="Klang-Player im Dunkelmodus" loading="lazy" width="775" height="1483"><figcaption>Klang auf deiner Frequenz</figcaption></figure>
+        <figure role="listitem"><img src="screenshots/05-koerper.png" alt="Geführte Nackenübung mit Timer" loading="lazy" width="775" height="1483"><figcaption>Geführte Körper-Programme</figcaption></figure>
+        <figure role="listitem"><img src="screenshots/06-hoerprofil.png" alt="Hörcheck mit Import aus Apple Health" loading="lazy" width="775" height="1483"><figcaption>Hörcheck bis 16 kHz</figcaption></figure>
+        <figure role="listitem"><img src="screenshots/08-lektion.png" alt="Lektion aus dem Kopf-Training" loading="lazy" width="775" height="1483"><figcaption>Kopf-Training nach KVT</figcaption></figure>
+        <figure role="listitem"><img src="screenshots/09-verlauf.png" alt="Verlauf mit Lautheit und Belastung" loading="lazy" width="775" height="1483"><figcaption>Was sich verändert</figcaption></figure>
+        <figure role="listitem"><img src="screenshots/07-wissen.png" alt="Wissen: Forschungsstand mit Quellen" loading="lazy" width="775" height="1483"><figcaption>Forschung mit Quellen</figcaption></figure>
+        <figure role="listitem"><img src="screenshots/11-ueben-dunkel.png" alt="Üben im Dunkelmodus" loading="lazy" width="775" height="1483"><figcaption>Auch im Dunkeln ruhig</figcaption></figure>
+      </div>
+      <div class="cdots" aria-hidden="true"></div>
+    </div>
+  </div>
+</section>
+
+<!-- principles -->
+<section class="ch" id="prinzipien">
+  <div class="wrap">
+    <div class="chnum reveal">PRINZIPIEN</div>
+    <h2 class="reveal" style="max-width:20ch">Ehrlich, privat, sicher.</h2>
+    <div class="grid4">
+      <div class="card reveal"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19h16M7 15v4M12 10v9M17 5v14"/></svg></div><h3>Ehrlich</h3><p>Jedes Verfahren trägt seine Evidenz-Stufe. Schwach belegtes heißt „schwach“. Jede Quelle ist in der App antippbar.</p></div>
+      <div class="card reveal"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div><h3>Privat</h3><p>Kein Server, kein Konto, kein Tracking. Daten liegen auf dem Gerät – auf Wunsch in deiner privaten iCloud.</p></div>
+      <div class="card reveal"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l8 4v5c0 5-3.5 8-8 9-4.5-1-8-4-8-9V7z"/></svg></div><h3>Sicher</h3><p>Pegel gedeckelt (Klänge ≈ 85, Messsignale ≈ 80 dB SPL), Hörschutz-Dosis nach WHO, Warnzeichen führen zum Arzt.</p></div>
+      <div class="card reveal"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg></div><h3>Ergänzend</h3><p>Kein Medizinprodukt, keine Therapie. Ein Werkzeug, das die HNO-Abklärung und leitliniengerechte Behandlung begleitet.</p></div>
+    </div>
+    <div class="two" style="margin-top:70px">
+      <div class="reveal">
+        <h3 style="font-size:26px">Unter der Haube</h3>
+        <p class="muted" style="margin-top:12px">Native iOS-App in SwiftUI und Swift&nbsp;6, dazu eine installierbare Web-App als Prototyp. Daten wandern per JSON zwischen beiden.</p>
+      </div>
+      <ul class="tech reveal">
+        <li>Eigene Audio-Engine: AVAudioEngine, Biquad-Notch 8. Ordnung, rosa/braunes Rauschen, AM, CR-Sequenzer, Limiter</li>
+        <li>SwiftData + CloudKit, HealthKit, WatchConnectivity</li>
+        <li>Apple-Watch-App, Widgets, Live Activity, App Intents, Schlaf-Fokus</li>
+        <li>AirPods-Kopfbewegung für Nacken-Übungen und Haltungshinweis</li>
+        <li>Getestet: 35 Core-, 11 Audio-, 5 App- und 5 UI-Tests</li>
+        <li>Web-App: TypeScript, Vite, Web Audio, offline-fähig</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- sources -->
+<section class="ch" id="quellen">
+  <div class="wrap">
+    <div class="chnum reveal">QUELLEN</div>
+    <h2 class="reveal">Zum Nachlesen.</h2>
+    <p class="muted reveal" style="margin-top:16px;max-width:64ch">Eine Auswahl der wichtigsten Arbeiten. Die vollständige Liste mit Einordnung steht in der App unter „Wissen“. Die Links führen zur Suche in PubMed bzw. zum AWMF-Leitlinienregister.</p>
+    <ol class="sources reveal" id="srcs"></ol>
+    <div class="warnbox reveal" style="margin-top:40px"><b>Bitte ärztlich abklären lassen,</b> wenn dein Tinnitus plötzlich neu oder einseitig auftritt, pulsiert, oder zusammen mit Hörverlust, Schwindel oder neurologischen Symptomen – bei plötzlichem Hörverlust noch am selben Tag.</div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div>Tinnitus Lab · Open Source unter <a href="https://github.com/tobwil/solvemytinnitus/blob/main/LICENSE">MIT-Lizenz</a><br>Kein Medizinprodukt · ersetzt keine ärztliche Diagnose oder Behandlung.</div>
+    <div><a href="app/">Web-App</a> · <a href="https://github.com/tobwil/solvemytinnitus">GitHub</a> · <a href="https://github.com/tobwil/solvemytinnitus/tree/main/ios">iOS-Code</a></div>
+  </div>
+</footer>
+
+<script>
+// sources → PubMed / AWMF links (same rule as the app)
+const refs = [
+  ["Jarach et al. 2022", "Global prevalence and incidence of tinnitus, JAMA Neurology"],
+  ["Mazurek et al. 2022", "S3-Leitlinie Chronischer Tinnitus (AWMF 017-064)", "https://register.awmf.org/de/leitlinien/detail/017-064"],
+  ["Fuller et al. 2020", "Cognitive behavioural therapy for tinnitus, Cochrane"],
+  ["Sereda et al. 2018", "Sound therapy (amplification devices and/or sound generators), Cochrane"],
+  ["Schoisswohl et al. 2025", "UNITI: personalisierte und kombinierte Behandlungen"],
+  ["Roberts et al. 2008", "Residual inhibition functions overlap tinnitus spectra, JARO"],
+  ["Hébert et al. 2018", "Likeness-Rating vs. Pitch-Matching"],
+  ["Levine 1999", "Somatischer (kraniozervikaler) Tinnitus"],
+  ["Sanchez et al. 2002", "Modulation von Tinnitus durch Kiefer- und Kopfbewegungen"],
+  ["Michiels et al. 2016", "Physiotherapie bei zervikogenem somatischem Tinnitus, RCT"],
+  ["Boedts et al. 2024", "Bimodale Neuromodulation (TENT-A3), Nat Commun"],
+  ["Conlon et al. 2020", "Bimodale Neuromodulation (TENT-A1), Sci Transl Med"],
+  ["Okamoto et al. 2010", "Tailor-made notched music, PNAS"],
+  ["Tavanai et al. 2024", "Notched music – Meta-Analyse"],
+  ["Hall et al. 2022", "T30-Neurostimulator (akustische CR) – doppelblinde RCT, Brain Sci"],
+  ["Auerbach et al. 2014", "Zentrale Verstärkung und Tinnitus"],
+  ["Schaette & McAlpine 2011", "Tinnitus bei normalem Audiogramm, J Neurosci"],
+  ["Searchfield et al. 2023", "Medikamentöse Ansätze bei Tinnitus – Übersicht"],
+];
+const pub = r => { const a = r.split(/[ ,&]/)[0], y = (r.match(/(19|20)\d\d/) || [""])[0];
+  return "https://pubmed.ncbi.nlm.nih.gov/?term=" + encodeURIComponent(`${a}[au] AND ${y}[dp] AND tinnitus`); };
+document.getElementById("srcs").innerHTML = refs.map(([r, t, u]) =>
+  `<li><a href="${u || pub(r)}" rel="noopener">${r}</a> – ${t}</li>`).join("");
+
+// hero wave: a slow amber line with a calmer teal one beneath
+const w1 = document.getElementById("w1"), w2 = document.getElementById("w2");
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function wave(t, amp, freq, phase, y) {
+  let d = ""; for (let x = 0; x <= 1200; x += 12) {
+    const v = y + Math.sin(x * freq + t + phase) * amp * (0.6 + 0.4 * Math.sin(x * 0.003 + t * 0.4));
+    d += (x ? "L" : "M") + x + " " + v.toFixed(1);
+  } return d; }
+function frame(ts) { const t = reduce ? 0 : ts / 1600;
+  w1.setAttribute("d", wave(t, 26, 0.012, 0, 55)); w2.setAttribute("d", wave(t * 0.7, 12, 0.008, 2, 70));
+  if (!reduce) requestAnimationFrame(frame); }
+requestAnimationFrame(frame);
+
+// screenshot carousel: state classes drive fades/arrows, dots follow the centred screen
+(() => {
+  const c = document.getElementById("carousel"), g = c.querySelector(".gallery");
+  const figs = [...g.children], dots = c.querySelector(".cdots");
+  // one dot per "page" of screens, so the first dot is active at the start on every width
+  const update = () => {
+    const max = g.scrollWidth - g.clientWidth;
+    c.classList.toggle("l", g.scrollLeft > 4); c.classList.toggle("r", g.scrollLeft < max - 4);
+    const pages = max > 4 ? Math.ceil(g.scrollWidth / g.clientWidth) : 0;
+    if (dots.children.length !== pages) {
+      dots.replaceChildren(...Array.from({ length: pages }, (_, i) => { const b = document.createElement("button");
+        b.type = "button"; b.tabIndex = -1; b.onclick = () => g.scrollTo({ left: max * i / (pages - 1), behavior: reduce ? "auto" : "smooth" }); return b; }));
+    }
+    const on = pages ? Math.round(g.scrollLeft / max * (pages - 1)) : -1;
+    [...dots.children].forEach((b, i) => b.classList.toggle("on", i === on));
+  };
+  const page = dir => g.scrollBy({ left: dir * g.clientWidth * 0.8, behavior: reduce ? "auto" : "smooth" });
+  c.querySelector(".prev").onclick = () => page(-1); c.querySelector(".next").onclick = () => page(1);
+  g.addEventListener("scroll", update, { passive: true }); addEventListener("resize", update);
+  figs.forEach(f => f.querySelector("img").addEventListener("load", update)); update();
+})();
+
+// reveal on scroll + active chapter in nav
+const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { rootMargin: "0px 0px -8% 0px" });
+document.querySelectorAll(".reveal").forEach(el => io.observe(el));
+const links = [...document.querySelectorAll("nav.top li a")];
+const nav = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(l => l.classList.toggle("on", l.hash === "#" + e.target.id)); }), { rootMargin: "-45% 0px -50% 0px" });
+document.querySelectorAll("section.ch[id]").forEach(s => nav.observe(s));
+</script>
+</body>
+</html>

@@ -1,3 +1,13 @@
 node_modules
 dist
 .DS_Store
+
+# iOS
+ios/TinnitusLab.xcodeproj
+ios/**/.build
+ios/**/.swiftpm
+ios/**/xcuserdata
+DerivedData
+
+# local tooling
+.claude/
