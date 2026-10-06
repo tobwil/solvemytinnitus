@@ -1,5 +1,9 @@
 # 07 · Roadmap
 
+> **Stand der Umsetzung (Oktober 2026):** Phasen 0–2 und der Großteil von Phase 3 sind in [`ios/`](../../ios/README.md)
+> umgesetzt. Offen sind Rive-Assets (optional), englische Lokalisierung, ein vollständiges VoiceOver-Audit und
+> echte Kalibriermessungen der Kopfhörerprofile (die Werte im Code sind konservative Platzhalter).
+
 Zeitangaben sind Schätzungen für eine Person mit Erfahrung in SwiftUI, in Teilzeit.
 
 ## Phase 0 · Fundament (1–2 Wochen)

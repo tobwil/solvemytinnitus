@@ -1,10 +1,25 @@
 # Tinnitus Lab
 
+**Messen, was bei dir wirkt – statt Heilung zu versprechen.** Ein ehrliches, privates Selbst-Experiment gegen
+chronischen Tinnitus: native iOS-App (iPhone, Apple Watch) und Web-App.
+
+→ **[Die Geschichte: vom Problem über die Forschung zur App](https://tobwil.github.io/solvemytinnitus/)** ·
+[Web-App](https://tobwil.github.io/solvemytinnitus/app/) · [iOS-Code](ios/README.md)
+
+<p align="center">
+  <img src="site/screenshots/01-fluss.png" width="210" alt="Fluss: der Tag als Welle mit Check-in und Zeitleiste">
+  <img src="site/screenshots/02-ueben.png" width="210" alt="Üben: Was brauchst du jetzt?">
+  <img src="site/screenshots/03-ich.png" width="210" alt="Ich: Porträt des Tinnitus mit Verlauf und Erkenntnissen">
+  <img src="site/screenshots/04-klang.png" width="210" alt="Klang-Player im Dunkelmodus">
+</p>
+
+## Web-App
+
 Installierbare Web-App (iPhone, Mac, jeder moderne Browser) für ein strukturiertes, evidenzbasiertes
 Selbst-Experiment gegen chronischen, hochfrequenten Tinnitus. Keine Server, keine Konten: alle Daten
 bleiben im Browser.
 
-## Aufbau
+### Aufbau
 
 | Bereich | Inhalt |
 | --- | --- |
@@ -25,8 +40,21 @@ bleiben im Browser.
 
 ## iOS-App
 
+Drei Räume statt Kacheln: **Fluss** (der Tag als Welle, Check-in, Zeitleiste), **Üben** (vom Befinden aus: Klang,
+Kopf, Körper) und **Ich** (Porträt, Verlauf, Messungen). Teal für alles, was du tust, Amber für den Tinnitus.
+
+<p align="center">
+  <img src="site/screenshots/05-koerper.png" width="180" alt="Geführte Nackenübung">
+  <img src="site/screenshots/08-lektion.png" width="180" alt="Lektion aus dem Kopf-Training">
+  <img src="site/screenshots/09-verlauf.png" width="180" alt="Verlauf">
+  <img src="site/screenshots/07-wissen.png" width="180" alt="Wissen mit Quellen">
+</p>
+
 Der Plan für die native iOS-App (Architektur, native Fähigkeiten, Module, Audio-Engine,
-Körper-Modul mit Dehnübungen, Roadmap, Regulatorik) liegt in [`docs/ios/`](docs/ios/README.md).
+Körper-Modul mit Dehnübungen, Roadmap, Regulatorik) liegt in [`docs/ios/`](docs/ios/README.md),
+die Umsetzung (SwiftUI, Swift 6, iOS 18.1+, watchOS 11+) in [`ios/`](ios/README.md):
+App, Widgets, Live Activity, Watch-App und Komplikation, Swift Packages `TinnitusCore` und `TinnitusAudio`
+mit Tests. Daten lassen sich per JSON zwischen Web- und iOS-App übertragen.
 
 ## Entwicklung
 
@@ -53,3 +81,17 @@ GitHub Pages) oder `npm run preview -- --host` starten und vom iPhone öffnen.
 
 - Pegel sind relativ (nicht kalibriert). Limiter und Master-Cap schützen vor Spitzen.
 - Kein Medizinprodukt. Ersetzt keine HNO-ärztliche Abklärung.
+
+## Screenshots und Projektseite
+
+Die Projektseite liegt in [`site/`](site/) (statisches HTML, kein Build) und wird zusammen mit der Web-App unter
+`/app/` per GitHub Actions veröffentlicht. Screenshots neu erzeugen: Simulator-Screenshots mit Demodaten
+(`-uitest -onboarded -demo`, `-tab practice|me`, `-route tinnituslab://…`) aufnehmen und rahmen:
+
+```bash
+swift ios/Scripts/frame-screenshots.swift <png-ordner> site/screenshots 0.5
+```
+
+## Lizenz
+
+[MIT](LICENSE). Tinnitus Lab ist kein Medizinprodukt und ersetzt keine ärztliche Diagnose oder Behandlung.

@@ -1,0 +1,208 @@
+# Generate the Xcode project with:  cd ios && xcodegen
+name: TinnitusLab
+options:
+  bundleIdPrefix: io.solvemytinnitus
+  deploymentTarget:
+    iOS: "18.1"
+    watchOS: "11.0"
+  developmentLanguage: de
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    DEVELOPMENT_TEAM: 5T32K4L4T4
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+
+packages:
+  TinnitusCore:
+    path: Packages/TinnitusCore
+  TinnitusAudio:
+    path: Packages/TinnitusAudio
+
+targets:
+  TinnitusLab:
+    type: application
+    platform: iOS
+    sources:
+      - path: TinnitusLab
+      - path: Shared
+    dependencies:
+      - package: TinnitusCore
+      - package: TinnitusAudio
+      - target: TinnitusLabWidgets
+      - target: TinnitusLabWatch
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.solvemytinnitus.lab
+        PRODUCT_NAME: TinnitusLab
+        INFOPLIST_KEY_CFBundleDisplayName: Tinnitus Lab
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+    entitlements:
+      path: TinnitusLab/TinnitusLab.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
+        com.apple.security.application-groups: [group.io.solvemytinnitus.lab]
+        com.apple.developer.icloud-container-identifiers: [iCloud.io.solvemytinnitus.lab]
+        com.apple.developer.icloud-services: [CloudKit]
+        aps-environment: development
+    info:
+      path: TinnitusLab/Info.plist
+      properties:
+        CFBundleDisplayName: Tinnitus Lab
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSApplicationCategoryType: public.app-category.healthcare-fitness
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIUserInterfaceStyle: Automatic
+        UIBackgroundModes: [audio, remote-notification]
+        NSSupportsLiveActivities: true
+        NSHealthShareUsageDescription: "Tinnitus Lab liest auf deinen Wunsch dein Audiogramm aus Apples Hörtest, Schlaf, Herzfrequenzvariabilität sowie Kopfhörer- und Umgebungslärm. Damit erkennt die App Auslöser automatisch. Die Daten bleiben auf deinem Gerät und in deiner iCloud."
+        NSHealthUpdateUsageDescription: "Tinnitus Lab trägt Atemübungen und Kopf-Training als Achtsamkeitsminuten in Health ein."
+        NSMotionUsageDescription: "Mit AirPods misst Tinnitus Lab die Beweglichkeit deines Nackens und führt dich durch die Dehnübungen."
+        NSAppleMusicUsageDescription: "Um eigene, nicht kopiergeschützte Musik mit einer Lücke bei deiner Tinnitus-Frequenz abzuspielen."
+        NSUserActivityTypes: [io.solvemytinnitus.lab.checkin]
+        CFBundleURLTypes:
+          - CFBundleURLName: io.solvemytinnitus.lab
+            CFBundleURLSchemes: [tinnituslab]
+        ITSAppUsesNonExemptEncryption: false
+
+  TinnitusLabWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: TinnitusLabWidgets
+      - path: Shared
+    dependencies:
+      - package: TinnitusCore
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.solvemytinnitus.lab.widgets
+        PRODUCT_NAME: TinnitusLabWidgets
+        TARGETED_DEVICE_FAMILY: "1"
+        SKIP_INSTALL: YES
+    entitlements:
+      path: TinnitusLabWidgets/TinnitusLabWidgets.entitlements
+      properties:
+        com.apple.security.application-groups: [group.io.solvemytinnitus.lab]
+    info:
+      path: TinnitusLabWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Tinnitus Lab
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+
+  TinnitusLabWatch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: TinnitusLabWatch
+    dependencies:
+      - package: TinnitusCore
+      - target: TinnitusLabWatchWidgets
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.solvemytinnitus.lab.watchkitapp
+        PRODUCT_NAME: TinnitusLabWatch
+        INFOPLIST_KEY_WKCompanionAppBundleIdentifier: io.solvemytinnitus.lab
+        INFOPLIST_KEY_WKRunsIndependentlyOfCompanionApp: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        SKIP_INSTALL: YES
+    entitlements:
+      path: TinnitusLabWatch/TinnitusLabWatch.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
+        com.apple.security.application-groups: [group.io.solvemytinnitus.lab]
+    info:
+      path: TinnitusLabWatch/Info.plist
+      properties:
+        CFBundleDisplayName: Tinnitus Lab
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        WKCompanionAppBundleIdentifier: io.solvemytinnitus.lab
+        WKApplication: true
+        NSHealthShareUsageDescription: "Tinnitus Lab nutzt Herzfrequenzvariabilität, um die Wirkung der Atemübung zu zeigen."
+        NSHealthUpdateUsageDescription: "Atemübungen werden als Achtsamkeitsminuten in Health eingetragen."
+
+  TinnitusLabWatchWidgets:
+    type: app-extension
+    platform: watchOS
+    sources:
+      - path: TinnitusLabWatchWidgets
+    dependencies:
+      - package: TinnitusCore
+      - sdk: WidgetKit.framework
+      - sdk: SwiftUI.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.solvemytinnitus.lab.watchkitapp.widgets
+        PRODUCT_NAME: TinnitusLabWatchWidgets
+        SKIP_INSTALL: YES
+    entitlements:
+      path: TinnitusLabWatchWidgets/TinnitusLabWatchWidgets.entitlements
+      properties:
+        com.apple.security.application-groups: [group.io.solvemytinnitus.lab]
+    info:
+      path: TinnitusLabWatchWidgets/Info.plist
+      properties:
+        CFBundleDisplayName: Tinnitus Lab
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+
+  TinnitusLabTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: TinnitusLabTests
+    dependencies:
+      - target: TinnitusLab
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        BUNDLE_LOADER: $(TEST_HOST)
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/TinnitusLab.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/TinnitusLab
+
+  TinnitusLabUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - path: TinnitusLabUITests
+    dependencies:
+      - target: TinnitusLab
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: TinnitusLab
+
+schemes:
+  TinnitusLab:
+    build:
+      targets:
+        TinnitusLab: all
+    test:
+      targets:
+        - TinnitusLabTests
+        - TinnitusLabUITests
+        - package: TinnitusCore/TinnitusCoreTests
+        - package: TinnitusAudio/TinnitusAudioTests
+    run:
+      config: Debug
