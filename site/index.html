@@ -122,15 +122,30 @@ blockquote cite{display:block;margin-top:10px;font:400 14px/1.4 -apple-system,sa
 .room ul{padding-left:20px;color:var(--ink2)}.room li{margin:6px 0}
 @media (max-width:860px){.room,.room.flip{grid-template-columns:1fr;gap:24px}.room.flip figure{order:0}.room figure{max-width:300px;margin:0 auto}}
 
-/* gallery */
-.gallery{display:flex;gap:22px;overflow-x:auto;scroll-snap-type:x mandatory;padding:10px 24px 26px;margin:40px -24px 0;scrollbar-width:thin}
+/* gallery: no visible scrollbar; fades + arrows only where more is, dots below */
+.carousel{position:relative;margin-top:40px}
+.gallery{display:flex;gap:22px;overflow-x:auto;scroll-snap-type:x mandatory;padding:10px 24px 10px;margin:0 -24px;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch;
+  --fl:0px;--fr:0px;
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 var(--fl),#000 calc(100% - var(--fr)),transparent 100%);
+          mask-image:linear-gradient(90deg,transparent 0,#000 var(--fl),#000 calc(100% - var(--fr)),transparent 100%)}
+.gallery::-webkit-scrollbar{display:none}
+.carousel.l .gallery{--fl:90px}.carousel.r .gallery{--fr:90px}
 .gallery figure{flex:0 0 250px;margin:0;scroll-snap-align:center;text-align:center}
 .gallery img{width:100%;height:auto}
 .gallery figcaption{font-size:14px;color:var(--ink2);margin-top:4px}
-.fade-edges{position:relative}
-.fade-edges::before,.fade-edges::after{content:"";position:absolute;top:0;bottom:0;width:48px;z-index:1;pointer-events:none}
-.fade-edges::before{left:-24px;background:linear-gradient(90deg,var(--bg),transparent)}
-.fade-edges::after{right:-24px;background:linear-gradient(270deg,var(--bg),transparent)}
+.navbtn{position:absolute;top:calc(50% - 40px);width:48px;height:48px;border-radius:50%;display:grid;place-items:center;cursor:pointer;
+  border:1px solid var(--line);background:color-mix(in srgb,var(--bg2) 70%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+  color:var(--ink);box-shadow:0 8px 24px rgba(0,0,0,.12);opacity:0;pointer-events:none;transition:opacity .25s,transform .25s;z-index:2}
+.navbtn svg{width:20px;height:20px}
+.navbtn.prev{left:-6px;transform:translateX(6px)}.navbtn.next{right:-6px;transform:translateX(-6px)}
+.carousel.l .navbtn.prev,.carousel.r .navbtn.next{opacity:1;pointer-events:auto;transform:none}
+.navbtn:hover{border-color:var(--teal);color:var(--teal)}
+.navbtn:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.cdots{display:flex;justify-content:center;gap:8px;margin-top:18px}
+.cdots button{width:8px;height:8px;padding:0;border:0;border-radius:4px;background:var(--line);cursor:pointer;transition:width .3s,background .3s}
+.cdots button.on{width:26px;background:var(--teal)}
+@media (hover:none){.navbtn{display:none}}
 
 /* principles */
 .grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:40px}
@@ -356,7 +371,9 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:16px 40px;justify-content:space-bet
       </div>
     </div>
 
-    <div class="fade-edges reveal">
+    <div class="carousel reveal" id="carousel">
+      <button class="navbtn prev" type="button" aria-label="Vorherige Bildschirme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button class="navbtn next" type="button" aria-label="Weitere Bildschirme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
       <div class="gallery" role="list" aria-label="Weitere Bildschirme">
         <figure role="listitem"><img src="screenshots/04-klang.png" alt="Klang-Player im Dunkelmodus" loading="lazy" width="775" height="1483"><figcaption>Klang auf deiner Frequenz</figcaption></figure>
         <figure role="listitem"><img src="screenshots/05-koerper.png" alt="Geführte Nackenübung mit Timer" loading="lazy" width="775" height="1483"><figcaption>Geführte Körper-Programme</figcaption></figure>
@@ -366,6 +383,7 @@ footer .wrap{display:flex;flex-wrap:wrap;gap:16px 40px;justify-content:space-bet
         <figure role="listitem"><img src="screenshots/07-wissen.png" alt="Wissen: Forschungsstand mit Quellen" loading="lazy" width="775" height="1483"><figcaption>Forschung mit Quellen</figcaption></figure>
         <figure role="listitem"><img src="screenshots/11-ueben-dunkel.png" alt="Üben im Dunkelmodus" loading="lazy" width="775" height="1483"><figcaption>Auch im Dunkeln ruhig</figcaption></figure>
       </div>
+      <div class="cdots" aria-hidden="true"></div>
     </div>
   </div>
 </section>
@@ -456,6 +474,28 @@ function frame(ts) { const t = reduce ? 0 : ts / 1600;
   w1.setAttribute("d", wave(t, 26, 0.012, 0, 55)); w2.setAttribute("d", wave(t * 0.7, 12, 0.008, 2, 70));
   if (!reduce) requestAnimationFrame(frame); }
 requestAnimationFrame(frame);
+
+// screenshot carousel: state classes drive fades/arrows, dots follow the centred screen
+(() => {
+  const c = document.getElementById("carousel"), g = c.querySelector(".gallery");
+  const figs = [...g.children], dots = c.querySelector(".cdots");
+  // one dot per "page" of screens, so the first dot is active at the start on every width
+  const update = () => {
+    const max = g.scrollWidth - g.clientWidth;
+    c.classList.toggle("l", g.scrollLeft > 4); c.classList.toggle("r", g.scrollLeft < max - 4);
+    const pages = max > 4 ? Math.ceil(g.scrollWidth / g.clientWidth) : 0;
+    if (dots.children.length !== pages) {
+      dots.replaceChildren(...Array.from({ length: pages }, (_, i) => { const b = document.createElement("button");
+        b.type = "button"; b.tabIndex = -1; b.onclick = () => g.scrollTo({ left: max * i / (pages - 1), behavior: reduce ? "auto" : "smooth" }); return b; }));
+    }
+    const on = pages ? Math.round(g.scrollLeft / max * (pages - 1)) : -1;
+    [...dots.children].forEach((b, i) => b.classList.toggle("on", i === on));
+  };
+  const page = dir => g.scrollBy({ left: dir * g.clientWidth * 0.8, behavior: reduce ? "auto" : "smooth" });
+  c.querySelector(".prev").onclick = () => page(-1); c.querySelector(".next").onclick = () => page(1);
+  g.addEventListener("scroll", update, { passive: true }); addEventListener("resize", update);
+  figs.forEach(f => f.querySelector("img").addEventListener("load", update)); update();
+})();
 
 // reveal on scroll + active chapter in nav
 const io = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); } }), { rootMargin: "0px 0px -8% 0px" });
