@@ -23,6 +23,11 @@ bleiben im Browser.
 - Residual Inhibition ist ein verlässlicher Kurzzeiteffekt; Langzeitwirkung durch Wiederholung ist nicht belegt.
 - Details und Quellen: Bereich „Wissen“ in der App, `src/screens/learn.ts`.
 
+## iOS-App
+
+Der Plan für die native iOS-App (Architektur, native Fähigkeiten, Module, Audio-Engine,
+Körper-Modul mit Dehnübungen, Roadmap, Regulatorik) liegt in [`docs/ios/`](docs/ios/README.md).
+
 ## Entwicklung
 
 ```bash
