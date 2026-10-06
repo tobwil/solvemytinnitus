@@ -103,3 +103,7 @@ ios/
 | `TinnitusAudioTests` (13) | AVAudioEngine im Offline-Modus: Ohr-Routing, Notch im Graph, −6-dBFS-Deckel, Aufräumen gestoppter Stimmen; Render-Block auf Nicht-Main-Thread; Kalibrierung/Deckel ≤ 85/80 dB SPL; Dosis; Spektrum-Analyser bei 16/44,1/48 kHz |
 | `TinnitusLabTests` (5) | Routing, Programmzustand aus dem Store, Widget-Check-in-Import, Sitzungs-Voreinstellungen; Quellen-Links (jede Kurzquelle ergibt einen PubMed- bzw. AWMF-Link) |
 | `TinnitusLabUITests` (5) | Onboarding, Inline-Check-in, Check-in per Deep Link, alle drei Räume mit Demodaten, Klangsitzung starten/beenden/bewerten |
+
+## Sprachausgabe
+
+Die Anleitungen sind vorab mit einer neuronalen Stimme (Chatterbox Multilingual, lokal erzeugt) aufgenommen und liegen als AAC in `TinnitusLab/Resources/Voice/` (69 Sätze, ca. 2,5 MB). Neu aufnehmen nach Textänderungen: siehe [`Scripts/voice/README.md`](Scripts/voice/README.md).

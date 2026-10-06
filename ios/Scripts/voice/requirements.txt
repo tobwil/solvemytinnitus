@@ -1,0 +1,5 @@
+chatterbox-tts
+piper-tts
+soundfile
+numpy
+setuptools<81  # resemble-perth (Chatterbox watermark) still imports pkg_resources

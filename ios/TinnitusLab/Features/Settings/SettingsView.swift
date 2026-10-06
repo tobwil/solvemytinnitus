@@ -195,34 +195,29 @@ struct JSONDocument: FileDocument {
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: data) }
 }
 
-/// Which voice reads the exercises, and how to get a natural-sounding one.
+/// Which voice reads the exercises. Normally the bundled recordings; the system voice only as fallback.
 private struct VoiceHint: View {
-    @State private var speech = Speech.shared
     @State private var refresh = 0
 
     var body: some View {
+        let speech = Speech.shared
+        let recorded = speech.hasRecordings
         let q = speech.quality
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text("Stimme: \(speech.voiceName)").font(.subheadline)
+                Text(recorded ? "Stimme: aufgenommen, neuronal" : "Stimme: \(speech.voiceName)").font(.subheadline)
                 Spacer()
-                Chip(q == .premium ? "Premium" : q == .enhanced ? "Erweitert" : "Kompakt", tone: q == .default ? .warn : .good)
+                Chip(recorded ? "offline" : q == .premium ? "Premium" : q == .enhanced ? "Erweitert" : "Kompakt",
+                     tone: recorded || q != .default ? .good : .warn)
             }
-            if q != .premium {
-                Text("Für eine natürliche Stimme lade einmalig eine kostenlose Premium-Stimme (läuft komplett auf dem Gerät): **Einstellungen › Bedienungshilfen › Gesprochene Inhalte › Stimmen › Deutsch** › z. B. *Anna (Premium)*. Die App nimmt sie danach automatisch.")
-                    .font(.caption).foregroundStyle(Theme.text2).fixedSize(horizontal: false, vertical: true)
-            }
-            HStack(spacing: 10) {
-                Button("Probehören") { Speech.shared.say("Atme ruhig ein. Und langsam wieder aus.") }
-                    .buttonStyle(.ghost(Theme.accent))
-                if q != .premium {
-                    Button("Einstellungen öffnen") { UIApplication.shared.open(URL(string: UIApplication.openSettingsURLString)!) }
-                        .buttonStyle(.ghost())
-                }
-            }
+            Text(recorded
+                 ? "Alle Anleitungen sind vorab mit einer natürlichen Stimme aufgenommen und liegen in der App. Kein Download, kein Server."
+                 : "Für eine natürlichere Stimme: **Einstellungen › Bedienungshilfen › Gesprochene Inhalte › Stimmen › Deutsch**.")
+                .font(.caption).foregroundStyle(Theme.text2).fixedSize(horizontal: false, vertical: true)
+            Button("Probehören") { Speech.shared.say("Einatmen durch die Nase") }
+                .buttonStyle(.ghost(Theme.accent))
         }
         .id(refresh)
         .onReceive(NotificationCenter.default.publisher(for: AVSpeechSynthesizer.availableVoicesDidChangeNotification)) { _ in refresh += 1 }
-        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in refresh += 1 }
     }
 }
