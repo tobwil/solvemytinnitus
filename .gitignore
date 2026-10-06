@@ -11,3 +11,6 @@ DerivedData
 
 # local tooling
 .claude/
+
+# voice comparison samples
+ios/voice-samples/

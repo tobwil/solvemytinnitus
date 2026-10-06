@@ -7,9 +7,11 @@ let package = Package(
     platforms: [.iOS("18.1"), .watchOS(.v11), .macOS(.v15)],
     products: [
         .library(name: "TinnitusCore", targets: ["TinnitusCore"]),
+        .executable(name: "voice-prompts", targets: ["voice-prompts"]),
     ],
     targets: [
         .target(name: "TinnitusCore"),
+        .executableTarget(name: "voice-prompts", dependencies: ["TinnitusCore"]),
         .testTarget(name: "TinnitusCoreTests", dependencies: ["TinnitusCore"]),
     ],
     swiftLanguageModes: [.v6]
