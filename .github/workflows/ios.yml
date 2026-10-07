@@ -1,0 +1,81 @@
+name: iOS
+
+on:
+  push:
+    paths: ['ios/**', '.github/workflows/ios.yml']
+  pull_request:
+    paths: ['ios/**', '.github/workflows/ios.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  packages:
+    name: Swift packages
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - run: xcodebuild -version && swift --version
+      - name: TinnitusCore
+        working-directory: ios/Packages/TinnitusCore
+        run: swift test
+      - name: TinnitusAudio
+        working-directory: ios/Packages/TinnitusAudio
+        run: swift test
+
+  app:
+    name: App (simulator)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - run: xcodebuild -version
+      - name: Generate project
+        working-directory: ios
+        run: |
+          brew install xcodegen
+          xcodegen
+      - name: Pick simulator
+        id: sim
+        run: |
+          UDID=$(xcrun simctl list devices available --json | python3 -c '
+          import json, sys
+          best = None
+          for runtime, devices in json.load(sys.stdin)["devices"].items():
+              if ".iOS-" not in runtime:
+                  continue
+              version = tuple(int(x) for x in runtime.split(".iOS-")[-1].split("-"))
+              for d in devices:
+                  if d["name"].startswith("iPhone") and (best is None or version > best[0]):
+                      best = (version, d["udid"], d["name"])
+          print(best[1])
+          print(best, file=sys.stderr)
+          ')
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+      - name: Build
+        working-directory: ios
+        run: |
+          xcodebuild build-for-testing -project TinnitusLab.xcodeproj -scheme TinnitusLab \
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO -quiet
+      - name: Unit and package tests
+        working-directory: ios
+        run: |
+          xcodebuild test-without-building -project TinnitusLab.xcodeproj -scheme TinnitusLab \
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build \
+            -skip-testing:TinnitusLabUITests -resultBundlePath results-unit.xcresult
+      - name: UI smoke tests
+        working-directory: ios
+        run: |
+          xcodebuild test-without-building -project TinnitusLab.xcodeproj -scheme TinnitusLab \
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath build \
+            -only-testing:TinnitusLabUITests -resultBundlePath results-ui.xcresult
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: xcresults
+          path: ios/*.xcresult
+          if-no-files-found: ignore
