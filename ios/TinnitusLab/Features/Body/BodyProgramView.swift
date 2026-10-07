@@ -221,7 +221,7 @@ struct BodyProgramView: View {
         holdProgress = 0
         reached = false
         phaseIndex = -1
-        tracker.recenter()
+        tracker.recenterIfNeutral()
         AudioEngine.shared.chime(levelDb: -32)
         Haptics.soft()
         if ctx.settings().speakTTS { Speech.shared.say(ex.cue(side: side)) }

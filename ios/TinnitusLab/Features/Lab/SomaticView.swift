@@ -155,16 +155,30 @@ struct SomaticView: View {
     }
 }
 
-/// Neck range of motion with AirPods: six movements, the peak angle of each is recorded.
+/// Neck range of motion with AirPods: six movements, the peak angle of each is recorded. The zero is
+/// set once while sitting upright; before every movement the head has to be back at zero and still, and
+/// each movement starts with a tap and can be repeated.
 struct MobilityTestView: View {
     var onDone: (NeckROM) -> Void
     var skip: () -> Void
     @State private var tracker = HeadTracker.shared
-    @State private var index = -1
+    @State private var step = Step.intro
+    @State private var values: [Double?] = []
     @State private var peak = 0.0
-    @State private var values: [Double] = []
     @State private var countdown = 6
+    @State private var steadyFor = 0.0
+    /// Repeating a single movement from the summary: return there afterwards.
+    @State private var fromSummary = false
     @State private var task: Task<Void, Never>?
+
+    enum Step: Equatable { case intro, center(Int), measure(Int), review(Int), summary }
+
+    /// Back at zero: every axis within this many degrees …
+    private static let tolerance = 8.0
+    /// … moving slower than this (°/s) …
+    private static let stillSpeed = 12.0
+    /// … for this long (s).
+    private static let stillTime = 0.8
 
     private let moves: [(String, MotionTarget.Axis, Double)] = [
         ("Kopf nach links drehen", .yaw, -1), ("Kopf nach rechts drehen", .yaw, 1),
@@ -172,61 +186,193 @@ struct MobilityTestView: View {
         ("Kinn zur Brust", .pitch, 1), ("Blick zur Decke", .pitch, -1),
     ]
 
+    private var ready: Bool { steadyFor >= Self.stillTime }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Nacken-Beweglichkeit").font(.titleL)
-            if index < 0 {
-                Text("Setz deine AirPods auf und sitz aufrecht. Bewege den Kopf langsam bis zur angenehmen Grenze, nicht darüber hinaus. Der Wert ist dein Ausgangspunkt fürs Körper-Modul.")
-                    .foregroundStyle(Theme.text2)
-                HStack {
-                    Image(systemName: tracker.connected ? "checkmark.circle.fill" : "airpodspro").foregroundStyle(tracker.connected ? Theme.good : Theme.text3)
-                    Text(tracker.connected ? "AirPods-Bewegungssensor verbunden" : "Warte auf AirPods-Bewegungsdaten …").font(.subheadline)
-                }
-                .card(padding: 12)
-                Button("Messung starten") { begin() }.buttonStyle(.primary(Theme.body)).disabled(!tracker.connected)
-                TextLinkButton("Überspringen", action: skip)
-            } else if index < moves.count {
-                let m = moves[index]
-                ProgressDots(total: moves.count, done: index, color: Theme.body)
-                VStack(spacing: 12) {
-                    Text(m.0).font(.titleM)
-                    AngleGauge(value: tracker.value(m.1) * m.2, peak: peak, color: Theme.body)
-                    Text("\(countdown) s").font(.display(28)).monospacedDigit().foregroundStyle(Theme.text2)
-                    if tracker.speed > 120 { Text("Langsamer bewegen").font(.caption.weight(.semibold)).foregroundStyle(Theme.warn) }
-                }
-                .frame(maxWidth: .infinity)
-                .card()
+            switch step {
+            case .intro: intro
+            case .center(let i): center(i)
+            case .measure(let i): measuring(i)
+            case .review(let i): review(i)
+            case .summary: summary
             }
         }
         .onAppear { tracker.start() }
         .onDisappear { task?.cancel(); tracker.stop() }
+        .task(id: step) { await watchNeutral() }
     }
 
-    private func begin() {
-        values = []
-        task = Task {
-            for i in moves.indices {
-                index = i
-                peak = 0
-                tracker.recenter()
-                try? await Task.sleep(for: .milliseconds(300))
-                for s in stride(from: 6, through: 1, by: -1) {
-                    countdown = s
-                    for _ in 0..<10 {
-                        try? await Task.sleep(for: .milliseconds(100))
-                        if Task.isCancelled { return }
-                        peak = max(peak, tracker.value(moves[i].1) * moves[i].2)
-                    }
-                }
-                values.append(peak)
-                Haptics.tick()
-                // back to neutral
-                try? await Task.sleep(for: .seconds(1.5))
-            }
-            index = moves.count
-            onDone(NeckROM(rotationLeft: values[0], rotationRight: values[1], tiltLeft: values[2], tiltRight: values[3], flexion: values[4], extensionDeg: values[5]))
+    // MARK: Steps
+
+    @ViewBuilder
+    private var intro: some View {
+        Text("Setz deine AirPods auf, sitz aufrecht und schau geradeaus: Das ist der Nullpunkt. Vor jeder Bewegung kehrst du dorthin zurück, gemessen wird erst, wenn du tippst. Bewege den Kopf langsam bis zur angenehmen Grenze, nicht darüber hinaus. Der Wert ist dein Ausgangspunkt fürs Körper-Modul.")
+            .foregroundStyle(Theme.text2)
+        HStack {
+            Image(systemName: tracker.connected ? "checkmark.circle.fill" : "airpodspro").foregroundStyle(tracker.connected ? Theme.good : Theme.text3)
+            Text(tracker.connected ? "AirPods-Bewegungssensor verbunden" : "Warte auf AirPods-Bewegungsdaten …").font(.subheadline)
+        }
+        .card(padding: 12)
+        Button("Nullpunkt setzen und beginnen") {
+            tracker.recenter()
+            values = Array(repeating: nil, count: moves.count)
+            fromSummary = false
+            step = .center(0)
+        }
+        .buttonStyle(.primary(Theme.body))
+        .disabled(!tracker.connected)
+        TextLinkButton("Überspringen", action: skip)
+    }
+
+    @ViewBuilder
+    private func center(_ i: Int) -> some View {
+        ProgressDots(total: moves.count, done: i, color: Theme.body)
+        VStack(spacing: 12) {
+            Text(ready ? "Bereit" : "Zurück zur Mitte").font(.titleM)
+            NeutralIndicator(yaw: tracker.yaw, pitch: tracker.pitch, tolerance: Self.tolerance, ready: ready)
+            Text("Abweichung \(Int(tracker.deviation))°").font(.caption).monospacedDigit().foregroundStyle(Theme.text3)
+            Text(ready ? "Als Nächstes: \(moves[i].0)." : "Sitz aufrecht, schau geradeaus und halt kurz still.")
+                .font(.subheadline).foregroundStyle(Theme.text2).multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: .infinity)
+        .card()
+        Button("Messen: \(moves[i].0)") { measure(i) }
+            .buttonStyle(.primary(Theme.body))
+            .disabled(!ready)
+        Text("Du sitzt gerade, aber der Punkt bleibt außerhalb der Mitte? Dann ist der Sensor abgedriftet.")
+            .font(.caption).foregroundStyle(Theme.text3)
+        TextLinkButton("Nullpunkt hier neu setzen", symbol: "scope") { tracker.recenter() }
+    }
+
+    @ViewBuilder
+    private func measuring(_ i: Int) -> some View {
+        let m = moves[i]
+        ProgressDots(total: moves.count, done: i, color: Theme.body)
+        VStack(spacing: 12) {
+            Text(m.0).font(.titleM)
+            AngleGauge(value: tracker.value(m.1) * m.2, peak: peak, color: Theme.body)
+            Text("\(countdown) s").font(.display(28)).monospacedDigit().foregroundStyle(Theme.text2)
+            if tracker.speed > 120 { Text("Langsamer bewegen").font(.caption.weight(.semibold)).foregroundStyle(Theme.warn) }
+        }
+        .frame(maxWidth: .infinity)
+        .card()
+        TextLinkButton("Abbrechen") {
+            task?.cancel()
+            step = .center(i)
         }
     }
+
+    @ViewBuilder
+    private func review(_ i: Int) -> some View {
+        let last = fromSummary || i + 1 >= moves.count
+        ProgressDots(total: moves.count, done: i + 1, color: Theme.body)
+        VStack(spacing: 6) {
+            Text(moves[i].0).font(.titleM)
+            Text("\(Int(values[i] ?? 0))°").font(.display(44)).monospacedDigit()
+            Text("Größter Winkel dieser Bewegung").font(.caption).foregroundStyle(Theme.text3)
+        }
+        .frame(maxWidth: .infinity)
+        .card()
+        Button { step = last ? .summary : .center(i + 1) } label: { NextLabel(last ? "Zur Übersicht" : "Weiter") }
+            .buttonStyle(.primary(Theme.body))
+        TextLinkButton("Wiederholen", symbol: "arrow.counterclockwise") { step = .center(i) }
+    }
+
+    @ViewBuilder
+    private var summary: some View {
+        Text("Passt ein Wert nicht, wiederhole die Bewegung einzeln.").foregroundStyle(Theme.text2)
+        VStack(spacing: 0) {
+            ForEach(moves.indices, id: \.self) { i in
+                HStack {
+                    Text(moves[i].0).font(.subheadline)
+                    Spacer()
+                    Text(values[i].map { "\(Int($0))°" } ?? "–").font(.body.weight(.semibold)).monospacedDigit()
+                    Button {
+                        fromSummary = true
+                        step = .center(i)
+                    } label: {
+                        Image(systemName: "arrow.counterclockwise").frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("\(moves[i].0) wiederholen")
+                }
+                if i < moves.count - 1 { Divider() }
+            }
+        }
+        .card(padding: 12)
+        Button("Speichern") { save() }
+            .buttonStyle(.primary(Theme.body))
+            .disabled(values.contains { $0 == nil })
+    }
+
+    // MARK: Logic
+
+    /// While waiting at zero: counts how long the head has been near zero and still.
+    private func watchNeutral() async {
+        steadyFor = 0
+        guard case .center = step else { return }
+        while !Task.isCancelled {
+            try? await Task.sleep(for: .milliseconds(100))
+            let wasReady = ready
+            let still = tracker.deviation <= Self.tolerance && tracker.speed <= Self.stillSpeed
+            steadyFor = still ? steadyFor + 0.1 : 0
+            if ready && !wasReady { Haptics.tick() }
+        }
+    }
+
+    private func measure(_ i: Int) {
+        task?.cancel()
+        peak = 0
+        countdown = 6
+        step = .measure(i)
+        let move = moves[i]
+        task = Task {
+            for s in stride(from: 6, through: 1, by: -1) {
+                countdown = s
+                for _ in 0..<10 {
+                    try? await Task.sleep(for: .milliseconds(100))
+                    if Task.isCancelled { return }
+                    peak = max(peak, tracker.value(move.1) * move.2)
+                }
+            }
+            values[i] = peak
+            Haptics.success()
+            step = .review(i)
+        }
+    }
+
+    private func save() {
+        let v = values.map { $0 ?? 0 }
+        onDone(NeckROM(rotationLeft: v[0], rotationRight: v[1], tiltLeft: v[2], tiltRight: v[3], flexion: v[4], extensionDeg: v[5]))
+    }
+}
+
+/// Bubble level for "back to zero": the dot follows yaw (left/right) and pitch (up/down); the inner
+/// circle is the tolerance.
+private struct NeutralIndicator: View {
+    var yaw: Double
+    var pitch: Double
+    var tolerance: Double
+    var ready: Bool
+
+    /// Points per degree; the outer ring is ±30°.
+    private let scale = 2.4
+
+    var body: some View {
+        let color = ready ? Theme.good : Theme.body
+        ZStack {
+            Circle().stroke(Theme.surface3, lineWidth: 2).frame(width: 144, height: 144)
+            Circle().fill(color.opacity(0.18)).frame(width: tolerance * scale * 2, height: tolerance * scale * 2)
+            Circle().fill(color).frame(width: 18, height: 18)
+                .offset(x: clamp(yaw * scale), y: clamp(pitch * scale))
+        }
+        .frame(width: 150, height: 150)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(ready ? "In der Mitte" : "Noch nicht in der Mitte")
+    }
+
+    private func clamp(_ v: Double) -> Double { min(63, max(-63, v)) }
 }
 
 /// Half-circle gauge for an angle in degrees with the peak marked.

@@ -52,6 +52,15 @@ final class HeadTracker: NSObject {
     /// Takes the current orientation as zero.
     func recenter() { resetRequested = true }
 
+    /// Largest deviation from zero on any axis, in degrees.
+    var deviation: Double { max(abs(yaw), abs(roll), abs(pitch)) }
+
+    /// Re-zeroes (against yaw drift) only when the head is already close to zero and still. A head that
+    /// is still turned or bent from the previous movement keeps the old zero instead of becoming the new one.
+    func recenterIfNeutral(tolerance: Double = 15, maxSpeed: Double = 20) {
+        if reference == nil || (deviation <= tolerance && speed <= maxSpeed) { resetRequested = true }
+    }
+
     private func handle(_ att: CMAttitude, rate: CMRotationRate) {
         connected = true
         authorized = true
