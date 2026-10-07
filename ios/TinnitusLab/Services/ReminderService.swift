@@ -14,9 +14,20 @@ final class ReminderService: NSObject, UNUserNotificationCenterDelegate {
     static let daysAhead = 7
     static let checkinCategory = "CHECKIN"
 
-    /// Deep link handler set by the app.
-    var onOpen: (@MainActor (AppRoute) -> Void)?
+    /// Deep link handler set by the app. A route that arrives before it is set (cold launch from a
+    /// notification) is kept and delivered as soon as the handler is installed.
+    var onOpen: (@MainActor (AppRoute) -> Void)? {
+        didSet {
+            if let onOpen, let route = pendingRoute {
+                pendingRoute = nil
+                onOpen(route)
+            }
+        }
+    }
+    private var pendingRoute: AppRoute?
 
+    /// Must run before the app finishes launching (App `init`), otherwise the tap that cold-launches
+    /// the app is never delivered.
     func setUp() {
         center.delegate = self
         let open = UNNotificationAction(identifier: "open", title: "Jetzt einschätzen", options: [.foreground])
@@ -103,14 +114,22 @@ final class ReminderService: NSObject, UNUserNotificationCenterDelegate {
 
     // MARK: Delegate
 
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse) async {
-        let link = response.notification.request.content.userInfo["route"] as? String
-        await MainActor.run {
-            if let link, let url = URL(string: link), let route = AppRoute(url: url) { onOpen?(route) }
-        }
+    private func open(_ link: String?) {
+        guard let link, let url = URL(string: link), let route = AppRoute(url: url) else { return }
+        if let onOpen { onOpen(route) } else { pendingRoute = route }
     }
 
-    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification) async -> UNNotificationPresentationOptions {
-        [.banner, .list]
+    // Completion-handler variants on purpose: the `async` variants run off the main thread, and UIKit
+    // then completes the notification response off the main thread, which crashes with
+    // "Call must be made on main thread" when a notification is tapped. These are called on the main
+    // thread and complete synchronously.
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse, withCompletionHandler completionHandler: @escaping () -> Void) {
+        let link = response.notification.request.content.userInfo["route"] as? String
+        Task { @MainActor in self.open(link) }
+        completionHandler()
+    }
+
+    nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .list])
     }
 }

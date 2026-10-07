@@ -35,6 +35,8 @@ struct TinnitusLabApp: App {
         }
         #endif
         SessionController.shared.container = container
+        // Notification delegate before launch finishes, so a tap that cold-launches the app is delivered.
+        ReminderService.shared.setUp()
     }
 
     var body: some Scene {
@@ -58,7 +60,6 @@ struct TinnitusLabApp: App {
         let s = ctx.settings()
         DataActions.applyAudioSettings(s)
         SessionController.shared.setUp()
-        ReminderService.shared.setUp()
         ReminderService.shared.onOpen = { model.open($0) }
         CheckInSink.handler = { l, d, origin in
             DataActions.addCheckIn(ctx, loudness: l, distress: d, origin: origin)

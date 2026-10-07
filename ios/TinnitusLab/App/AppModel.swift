@@ -30,18 +30,24 @@ final class AppModel {
             checkInPresented = true
         case .headphones, .spectrum, .match, .hearing, .somatic, .ri, .progress, .learn, .settings:
             tab = .me
-            mePath = [route]
+            show(route, in: &mePath)
         case .sound(let mode):
             tab = .practice
-            practicePath = [.sound(mode)]
+            show(.sound(mode), in: &practicePath)
         case .play(let mode, let minutes):
             tab = .practice
-            practicePath = [.sound(mode)]
+            show(.sound(mode), in: &practicePath)
             onPlay?(mode, minutes)
         case .mind, .lesson, .tool, .body:
             tab = .practice
-            practicePath = [route]
+            show(route, in: &practicePath)
         }
+    }
+
+    /// Keeps the screen if it is already on top (e.g. the RI lab when its pause notification is tapped),
+    /// so a running measurement is not torn down and restarted.
+    private func show(_ route: AppRoute, in path: inout [AppRoute]) {
+        if path.last != route { path = [route] }
     }
 
     /// Push within the current tab.
