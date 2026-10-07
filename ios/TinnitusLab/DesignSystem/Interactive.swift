@@ -102,17 +102,23 @@ struct SoundOrb: View {
 
     var body: some View {
         TimelineView(.animation(minimumInterval: 1.0 / 30, paused: reduceMotion || !active || AppEnv.isUITest)) { tl in
-            let t = tl.date.timeIntervalSinceReferenceDate
+            let t: Double = tl.date.timeIntervalSinceReferenceDate
             let bins = AudioEngine.shared.analyzer.bins()
-            let energy = active ? min(1, max(0, (Double(bins.reduce(0, +)) / Double(max(1, bins.count)) + 105) / 45)) : 0
-            let breath = 0.5 + 0.5 * sin(t * 2 * .pi / 6)
+            let level: Double = Double(bins.reduce(0, +)) / Double(max(1, bins.count))
+            let energy: Double = active ? min(1, max(0, (level + 105) / 45)) : 0
+            let breath: Double = 0.5 + 0.5 * sin(t * 2 * .pi / 6)
             ZStack {
                 ForEach(0..<3, id: \.self) { i in
+                    // split into typed parts: as one expression it exceeds the type checker's time limit
                     let k = Double(i)
+                    let gradient = RadialGradient(colors: [color.opacity(0.32 - k * 0.08), color.opacity(0)], center: .center, startRadius: 0, endRadius: 150)
+                    let scale: Double = 0.78 + 0.08 * breath + 0.22 * energy * (1 - k * 0.25)
+                    let dx: Double = cos(t * (0.4 + k * 0.17) + k) * 8 * energy
+                    let dy: Double = sin(t * (0.33 + k * 0.21) + k) * 8 * energy
                     Circle()
-                        .fill(RadialGradient(colors: [color.opacity(0.32 - k * 0.08), color.opacity(0)], center: .center, startRadius: 0, endRadius: 150))
-                        .scaleEffect(0.78 + 0.08 * breath + 0.22 * energy * (1 - k * 0.25))
-                        .offset(x: cos(t * (0.4 + k * 0.17) + k) * 8 * energy, y: sin(t * (0.33 + k * 0.21) + k) * 8 * energy)
+                        .fill(gradient)
+                        .scaleEffect(scale)
+                        .offset(x: dx, y: dy)
                         .blur(radius: 6 + k * 6)
                 }
             }

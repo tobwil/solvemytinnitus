@@ -332,9 +332,11 @@ struct FrequencyPad: View {
                 // likeness overlay
                 ForEach(overlay, id: \.freq) { p in
                     let px = CGFloat(MatchAnalysis.position(of: p.freq, fMin: fMin, fMax: fMax)) * w
-                    Capsule().fill(Theme.tin.opacity(0.10 + 0.25 * p.value / 10))
-                        .frame(width: 10, height: max(4, CGFloat(p.value / 10) * h * 0.8))
-                        .position(x: px, y: h - max(4, CGFloat(p.value / 10) * h * 0.8) / 2 - 4)
+                    let barH: CGFloat = max(4, CGFloat(p.value / 10) * h * 0.8)
+                    let alpha: Double = 0.10 + 0.25 * p.value / 10
+                    Capsule().fill(Theme.tin.opacity(alpha))
+                        .frame(width: 10, height: barH)
+                        .position(x: px, y: h - barH / 2 - 4)
                 }
                 ForEach(octaves, id: \.self) { f in
                     let px = CGFloat(MatchAnalysis.position(of: f, fMin: fMin, fMax: fMax)) * w
